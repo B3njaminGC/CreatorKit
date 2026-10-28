@@ -10,6 +10,7 @@
 <style>
 :root{--bg:#0f1220;--card:#181c30;--line:#2a3050;--tx:#eef0ff;--mut:#9aa1c7;--ac:#ff4d5e;--ac2:#7c5cff;--ok:#38d39f}
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 header{padding:16px 12px 8px;text-align:center}
 h1{margin:0;font-size:1.35rem;letter-spacing:.3px}
@@ -62,6 +63,14 @@ footer{text-align:center;padding:10px}
 .crit em{display:block;font-style:normal;color:var(--mut);font-size:.85rem}
 .win{text-align:center;font-weight:600;color:var(--ok)}
 .atitle{font-size:.95rem;color:var(--mut);margin:0 0 4px;word-break:break-word}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+input[type=range]{padding:0;border:0;background:none;accent-color:var(--ac);height:32px}
+input[type=color]{padding:3px;height:42px;cursor:pointer}
+input[type=file]{padding:9px}
+#mCanvas{display:block;width:100%;height:auto;aspect-ratio:16/9;border-radius:10px;border:1px solid var(--line);margin:10px 0;background:#000}
+.sws{display:flex;gap:10px;flex-wrap:wrap}
+.sw{width:38px;height:38px;border-radius:50%;border:3px solid var(--line);cursor:pointer;padding:0}
+.sw.on{border-color:#fff}
 </style>
 </head>
 <body>
@@ -73,6 +82,7 @@ footer{text-align:center;padding:10px}
 <nav>
   <button data-tab="titulos" class="on">✨ Títulos</button>
   <button data-tab="analizador">📊 Analizador</button>
+  <button data-tab="miniatura">🖼️ Miniatura</button>
   <button data-tab="calendario">📅 Calendario</button>
   <button data-tab="checklist">✅ Checklist</button>
   <button data-tab="ideas">💡 Ideas</button>
@@ -127,6 +137,85 @@ footer{text-align:center;padding:10px}
     <input id="aK" maxlength="40" placeholder="Ej: edición de video">
   </div>
   <div id="aOut"></div>
+</section>
+
+<section id="miniatura" hidden>
+  <div class="card">
+    <h2>Editor de miniaturas</h2>
+    <small>1280×720, el tamaño que pide YouTube. Todo se hace en tu dispositivo.</small>
+    <canvas id="mCanvas" width="1280" height="720"></canvas>
+    <label class="chk"><input type="checkbox" id="mGuides" checked> Mostrar zonas seguras (no se exportan)</label>
+    <div class="grid2">
+      <select id="mFmt" aria-label="Formato">
+        <option value="jpg">JPG (hasta 2 MB)</option>
+        <option value="png">PNG</option>
+      </select>
+      <button class="btn" id="mDl" style="margin-top:0">Descargar</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Fondo</h2>
+    <label for="mFile">Sube una imagen (opcional)</label>
+    <input type="file" id="mFile" accept="image/*">
+    <button class="btn sec sm" id="mClear" style="margin-top:8px" hidden>Quitar imagen</button>
+    <label>Colores (si no hay imagen)</label>
+    <div class="sws" id="mSw"></div>
+    <label for="mZoom">Zoom de la imagen</label>
+    <input type="range" id="mZoom" min="100" max="300" value="100">
+    <div class="grid2">
+      <div><label for="mX">Mover ←→</label><input type="range" id="mX" min="-50" max="50" value="0"></div>
+      <div><label for="mY">Mover ↑↓</label><input type="range" id="mY" min="-50" max="50" value="0"></div>
+    </div>
+    <label for="mDark">Oscurecer (para que se lea el texto)</label>
+    <input type="range" id="mDark" min="0" max="80" value="25">
+  </div>
+
+  <div class="card">
+    <h2>Texto</h2>
+    <label for="mT1">Texto principal</label>
+    <input id="mT1" maxlength="60" value="TU TÍTULO AQUÍ">
+    <label for="mT2">Texto secundario (opcional)</label>
+    <input id="mT2" maxlength="80" placeholder="Ej: paso a paso">
+    <div class="grid3">
+      <div><label for="mFont">Letra</label>
+        <select id="mFont">
+          <option value="Impact, 'Arial Black', 'Helvetica Neue', Arial, sans-serif">Impacto</option>
+          <option value="'Arial Black', 'Helvetica Neue', Arial, sans-serif">Gruesa</option>
+          <option value="system-ui, 'Segoe UI', Roboto, Arial, sans-serif">Moderna</option>
+          <option value="Georgia, 'Times New Roman', serif">Clásica</option>
+        </select></div>
+      <div><label for="mPos">Posición</label>
+        <select id="mPos">
+          <option value="top">Arriba</option>
+          <option value="center" selected>Centro</option>
+          <option value="bottom">Abajo</option>
+        </select></div>
+      <div><label for="mAlign">Alineación</label>
+        <select id="mAlign">
+          <option value="left">Izquierda</option>
+          <option value="center" selected>Centro</option>
+          <option value="right">Derecha</option>
+        </select></div>
+    </div>
+    <label for="mSize">Tamaño</label>
+    <input type="range" id="mSize" min="40" max="220" value="130">
+    <label for="mStroke">Grosor del contorno</label>
+    <input type="range" id="mStroke" min="0" max="20" value="8">
+    <div class="grid3">
+      <div><label for="mC1">Texto</label><input type="color" id="mC1" value="#ffffff"></div>
+      <div><label for="mC3">Secundario</label><input type="color" id="mC3" value="#ffe14d"></div>
+      <div><label for="mC2">Contorno</label><input type="color" id="mC2" value="#000000"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Borde</h2>
+    <label for="mBw">Grosor</label>
+    <input type="range" id="mBw" min="0" max="40" value="0">
+    <label for="mBc">Color</label>
+    <input type="color" id="mBc" value="#ff4d5e">
+  </div>
 </section>
 
 <section id="calendario" hidden>
@@ -506,6 +595,131 @@ function runAnalyzer(){
 }
 ['#aA', '#aB', '#aK'].forEach(s => $(s).addEventListener('input', runAnalyzer));
 runAnalyzer();
+
+/* ---------- Editor de miniaturas ---------- */
+const TW = 1280, TH = 720;
+const BGS = [['#ff4d5e', '#7c5cff'], ['#0f2027', '#2c5364'], ['#f7971e', '#ffd200'], ['#11998e', '#38ef7d'], ['#8e2de2', '#4a00e0'], ['#232526', '#414345']];
+let mImg = null, mBg = 0, mRaf = 0;
+
+$('#mSw').innerHTML = BGS.map((g, i) => `<button class="sw${i === 0 ? ' on' : ''}" data-bg="${i}" style="background:linear-gradient(135deg,${g[0]},${g[1]})" aria-label="Color ${i + 1}"></button>`).join('');
+$('#mSw').addEventListener('click', e => {
+  const b = e.target.closest('[data-bg]'); if(!b) return;
+  mBg = +b.dataset.bg;
+  document.querySelectorAll('#mSw .sw').forEach(s => s.classList.toggle('on', s === b));
+  drawThumb();
+});
+
+function wrapText(ctx, text, maxW){
+  const out = [];
+  text.split('\n').forEach(par => {
+    let line = '';
+    par.split(/\s+/).filter(Boolean).forEach(w => {
+      const t = line ? line + ' ' + w : w;
+      if(ctx.measureText(t).width > maxW && line){ out.push(line); line = w; } else line = t;
+    });
+    out.push(line);
+  });
+  return out;
+}
+
+function drawThumb(guides){
+  if(guides === undefined) guides = $('#mGuides').checked;
+  const c = $('#mCanvas'), ctx = c.getContext('2d');
+  ctx.clearRect(0, 0, TW, TH);
+
+  // fondo
+  if(mImg){
+    const s = Math.max(TW / mImg.width, TH / mImg.height) * (+$('#mZoom').value / 100);
+    const w = mImg.width * s, h = mImg.height * s;
+    ctx.drawImage(mImg, (TW - w) / 2 + (+$('#mX').value) * TW / 100, (TH - h) / 2 + (+$('#mY').value) * TH / 100, w, h);
+  }else{
+    const g = ctx.createLinearGradient(0, 0, TW, TH);
+    g.addColorStop(0, BGS[mBg][0]); g.addColorStop(1, BGS[mBg][1]);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, TW, TH);
+  }
+  const dark = +$('#mDark').value / 100;
+  if(dark){ ctx.fillStyle = `rgba(0,0,0,${dark})`; ctx.fillRect(0, 0, TW, TH); }
+
+  // texto
+  const t1 = $('#mT1').value.trim(), t2 = $('#mT2').value.trim();
+  const font = $('#mFont').value, align = $('#mAlign').value, strokeW = +$('#mStroke').value;
+  const maxW = TW * 0.88, margin = TW * 0.06;
+  const x = align === 'left' ? margin : align === 'right' ? TW - margin : TW / 2;
+  ctx.textAlign = align; ctx.textBaseline = 'top'; ctx.lineJoin = 'round'; ctx.miterLimit = 2;
+
+  let s1 = +$('#mSize').value;
+  const fit = (txt, size) => { // reduce hasta que la palabra más larga entre
+    ctx.font = `900 ${size}px ${font}`;
+    while(size > 24 && Math.max(0, ...txt.split(/\s+/).map(w => ctx.measureText(w).width)) > maxW){ size -= 4; ctx.font = `900 ${size}px ${font}`; }
+    return size;
+  };
+  const blocks = [];
+  if(t1){ s1 = fit(t1, s1); ctx.font = `900 ${s1}px ${font}`; blocks.push({lines: wrapText(ctx, t1, maxW), size: s1, color: $('#mC1').value}); }
+  if(t2){ const s2 = fit(t2, Math.round((blocks[0] ? s1 : +$('#mSize').value) * 0.5)); ctx.font = `900 ${s2}px ${font}`; blocks.push({lines: wrapText(ctx, t2, maxW), size: s2, color: $('#mC3').value}); }
+  const lhOf = b => b.size * 1.08, gap = blocks.length > 1 ? 14 : 0;
+  const total = blocks.reduce((a, b) => a + b.lines.length * lhOf(b), 0) + gap * (blocks.length - 1);
+  const pos = $('#mPos').value;
+  let y = pos === 'top' ? 50 : pos === 'bottom' ? TH - 80 - total : (TH - total) / 2;
+  blocks.forEach(b => {
+    ctx.font = `900 ${b.size}px ${font}`;
+    b.lines.forEach(line => {
+      if(strokeW){ ctx.lineWidth = strokeW * 2; ctx.strokeStyle = $('#mC2').value; ctx.strokeText(line, x, y); }
+      ctx.fillStyle = b.color; ctx.fillText(line, x, y);
+      y += lhOf(b);
+    });
+    y += gap;
+  });
+
+  // borde
+  const bw = +$('#mBw').value;
+  if(bw){ ctx.strokeStyle = $('#mBc').value; ctx.lineWidth = bw * 2; ctx.strokeRect(0, 0, TW, TH); }
+
+  // zonas seguras (solo vista previa)
+  if(guides){
+    ctx.save();
+    ctx.setLineDash([14, 10]); ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,.7)';
+    ctx.strokeRect(TW * 0.04, TH * 0.06, TW * 0.92, TH * 0.88);
+    ctx.fillStyle = 'rgba(255,60,60,.35)'; ctx.strokeStyle = 'rgba(255,120,120,.9)';
+    ctx.fillRect(TW - 210, TH - 80, 190, 60); ctx.strokeRect(TW - 210, TH - 80, 190, 60);
+    ctx.setLineDash([]); ctx.font = '700 22px system-ui, Arial, sans-serif'; ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('duración', TW - 115, TH - 50);
+    ctx.restore();
+  }
+}
+function scheduleThumb(){ cancelAnimationFrame(mRaf); mRaf = requestAnimationFrame(() => drawThumb()); }
+document.querySelectorAll('#miniatura input:not([type=file]), #miniatura select').forEach(el => el.addEventListener('input', scheduleThumb));
+
+$('#mFile').onchange = e => {
+  const f = e.target.files[0]; if(!f) return;
+  if(!f.type.startsWith('image/')){ toast('Elige una imagen'); return; }
+  if(f.size > 20 * 1024 * 1024){ toast('La imagen pesa demasiado (máx. 20 MB)'); return; }
+  const url = URL.createObjectURL(f), img = new Image();
+  img.onload = () => { mImg = img; $('#mClear').hidden = false; $('#mZoom').value = 100; $('#mX').value = 0; $('#mY').value = 0; drawThumb(); setTimeout(() => URL.revokeObjectURL(url), 2000); };
+  img.onerror = () => { toast('No se pudo abrir esa imagen'); URL.revokeObjectURL(url); };
+  img.src = url;
+};
+$('#mClear').onclick = () => { mImg = null; $('#mFile').value = ''; $('#mClear').hidden = true; drawThumb(); };
+
+$('#mDl').onclick = () => {
+  const jpg = $('#mFmt').value === 'jpg', c = $('#mCanvas');
+  drawThumb(false);
+  const finish = (blob, q) => {
+    drawThumb();
+    if(!blob){ toast('No se pudo crear la imagen'); return; }
+    const mb = (blob.size / 1048576).toFixed(2);
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = 'miniatura.' + (jpg ? 'jpg' : 'png'); a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    toast(!jpg && blob.size > 2097152 ? `Pesa ${mb} MB: YouTube acepta hasta 2 MB, usa JPG` : `Descargada (${mb} MB) ✓`);
+  };
+  if(!jpg){ c.toBlob(b => finish(b), 'image/png'); return; }
+  let q = 0.92;
+  const tryQ = () => c.toBlob(b => {
+    if(b && b.size > 2097152 && q > 0.5){ q -= 0.1; tryQ(); } else finish(b, q);
+  }, 'image/jpeg', q);
+  tryQ();
+};
+drawThumb();
 
 function renderAll(){ renderCal(); renderVideos(); renderChecks(); renderIdeas(); }
 renderAll();
