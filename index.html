@@ -111,13 +111,17 @@ input[type=file]{padding:9px}
           <option value="urgencia">Con urgencia</option>
         </select></div>
     </div>
+    <label for="gNicho">Nicho</label>
+    <select id="gNicho"></select>
     <label for="gCanal">Nombre de tu canal (opcional)</label>
     <input id="gCanal" placeholder="Para la descripción" maxlength="60">
     <button class="btn" id="gBtn">Generar</button>
   </div>
+  <div class="card" id="proBox"></div>
   <div id="gOut" hidden>
     <div class="card"><h2>Títulos</h2><div id="gTitulos"></div>
       <small>Tip: los títulos de hasta 60 caracteres se ven completos en YouTube.</small></div>
+    <div class="card"><h2>Ganchos de apertura</h2><small>Para los primeros 5 segundos del video.</small><div id="gHooks"></div></div>
     <div class="card"><h2>Descripción</h2><textarea id="gDesc"></textarea>
       <button class="btn sec sm" id="cDesc" style="margin-top:8px">Copiar descripción</button></div>
     <div class="card"><h2>Tags</h2><textarea id="gTags" style="min-height:90px"></textarea>
@@ -269,6 +273,7 @@ input[type=file]{padding:9px}
 </footer>
 <div id="toast"></div>
 
+<script src="pro-codes.js"></script>
 <script>
 const $ = s => document.querySelector(s);
 const store = {
@@ -338,28 +343,33 @@ const EXTRA_TAGS = {
   reto: ['reto','challenge','desafio']
 };
 
-function genTitles(t, type, tone){
+function genTitles(t, type, tone, pk){
   const n = pick([5, 7, 10]);
-  return shuffle(TPL[type]).slice(0, 8).map(s => {
+  const pool = pk && pk.tpl
+    ? shuffle(shuffle(pk.tpl[type]).slice(0, 7).concat(shuffle(TPL[type]).slice(0, 1)))
+    : shuffle(TPL[type]);
+  return pool.slice(0, 8).map(s => {
     let x = s.split('{t}').join(t).split('{n}').join(n);
     x = x.charAt(0).toUpperCase() + x.slice(1);
     if(!x.endsWith('?')) x += pick(SUF[tone]);
     return x;
   });
 }
-function genDesc(t, type, canal){
+function genDesc(t, type, canal, pk){
   const tag = '#' + t.replace(/[^\p{L}\p{N}]+/gu, '');
+  const extra = pk && pk.cta ? "\n" + pk.cta : '';
+  const tagList = [...new Set([tag, '#' + type, ...((pk && pk.hash) || []).map(h => '#' + h)].map(x => x.toLowerCase()))];
   return INTRO[type].split('{t}').join(t) +
     "\n\n⏱️ Capítulos:\n00:00 Introducción\n00:00 ...\n00:00 Conclusión" +
     "\n\n👍 Si te sirvió, dale like y suscríbete" + (canal ? " a " + canal : "") + " para no perderte los próximos videos." +
-    "\n💬 Cuéntame en los comentarios qué opinas de " + t + "." +
-    "\n\n" + tag + " #" + type;
+    "\n💬 Cuéntame en los comentarios qué opinas de " + t + "." + extra +
+    "\n\n" + tagList.join(' ');
 }
-function genTags(t, type){
+function genTags(t, type, pk){
   const y = new Date().getFullYear();
   const base = [t, 'como ' + t, t + ' tutorial', t + ' para principiantes', t + ' ' + y, 'que es ' + t, 'mejor ' + t, t + ' consejos', t + ' paso a paso'];
   const words = t.split(/\s+/).filter(w => w.length > 3);
-  const all = [...new Set([...base, ...words, ...EXTRA_TAGS[type]].map(s => s.toLowerCase()))];
+  const all = [...new Set([...base, ...words, ...EXTRA_TAGS[type], ...((pk && pk.tags) || [])].map(s => s.toLowerCase()))];
   const out = []; let len = 0;
   for(const s of all){ if(len + s.length + 2 > 480) break; out.push(s); len += s.length + 2; }
   return out.join(', ');
@@ -368,12 +378,17 @@ function runGen(){
   const t = $('#gTema').value.trim();
   if(!t){ toast('Escribe el tema primero'); $('#gTema').focus(); return; }
   const type = $('#gTipo').value, tone = $('#gTono').value, canal = $('#gCanal').value.trim();
-  const titles = genTitles(t, type, tone);
+  const nicho = $('#gNicho').value;
+  if(!PACKS[nicho].free && !proOn){ toast('Ese pack es Pro 🔒'); $('#proBox').scrollIntoView({behavior: 'smooth'}); return; }
+  const pk = PACKS[nicho];
+  const titles = genTitles(t, type, tone, pk);
+  $('#gHooks').innerHTML = shuffle(pk.hooks).slice(0, 5).map(h => { const x = h.split('{t}').join(t);
+    return `<div class="t"><span>${esc(x)}</span><button class="btn sec sm" data-copy="${esc(x)}">Copiar</button></div>`; }).join('');
   $('#gTitulos').innerHTML = titles.map(x =>
     `<div class="t"><span>${esc(x)}</span><b class="badge ${x.length > 60 ? 'warn' : ''}">${x.length}</b><button class="btn sec sm" data-score="${esc(x)}">Puntuar</button><button class="btn sec sm" data-copy="${esc(x)}">Copiar</button></div>`
   ).join('');
-  $('#gDesc').value = genDesc(t, type, canal);
-  $('#gTags').value = genTags(t, type);
+  $('#gDesc').value = genDesc(t, type, canal, pk);
+  $('#gTags').value = genTags(t, type, pk);
   $('#gOut').hidden = false;
   $('#gOut').scrollIntoView({behavior: 'smooth'});
 }
@@ -384,6 +399,7 @@ $('#gTitulos').addEventListener('click', e => {
   if(s){ $('#aA').value = s.dataset.score; $('#aB').value = ''; $('#aK').value = $('#gTema').value.trim(); show('analizador'); runAnalyzer(); return; }
   const b = e.target.closest('[data-copy]'); if(b) copy(b.dataset.copy);
 });
+$('#gHooks').addEventListener('click', e => { const b = e.target.closest('[data-copy]'); if(b) copy(b.dataset.copy); });
 $('#cDesc').onclick = () => copy($('#gDesc').value);
 $('#cTags').onclick = () => copy($('#gTags').value);
 
@@ -499,6 +515,105 @@ $('#imp').onchange = e => {
   };
   r.readAsText(f); e.target.value = '';
 };
+
+/* ---------- Packs por nicho y versión Pro ---------- */
+const PRO_URL = ''; // Pega aquí el link de pago (Gumroad, Mercado Pago, Ko-fi...) cuando lo tengas
+const PACKS = {
+  general: {name: 'General', free: true, hooks: [
+    "Hoy te muestro algo de {t} que te va a servir.", "Si te interesa {t}, quédate hasta el final.",
+    "Esto es lo que ojalá hubiera sabido antes sobre {t}.", "En este video te cuento todo sobre {t}.",
+    "Lo que nadie te dice de {t}...", "Prueba esto con {t} y cuéntame qué tal te va."]},
+  gaming: {name: 'Gaming 🎮', tpl: {
+    tutorial: ["Cómo ganar en {t} (guía para principiantes)", "Las mejores configuraciones de {t}", "Aprende {t} desde cero: guía completa", "Trucos de {t} que usan los pro", "Cómo subir de nivel más rápido en {t}", "Errores que te hacen perder en {t}", "La mejor estrategia para {t} (funciona siempre)"],
+    lista: ["Top {n} trucos de {t} que debes conocer", "{n} errores de novato en {t}", "Los {n} mejores consejos para {t}", "{n} secretos de {t} que casi nadie conoce", "{n} cosas que odio de {t}", "Top {n} momentos épicos en {t}", "{n} cambios que necesita {t}"],
+    vlog: ["Jugué {t} durante 24 horas seguidas", "Mi primera partida en {t} (así me fue)", "Un día jugando {t} con suscriptores", "Mi experiencia real con {t} después de 100 horas", "Así fue mi mejor partida en {t}", "Mi progreso en {t} desde cero", "Probé {t} por primera vez (reacción real)"],
+    opinion: ["¿Vale la pena {t}?", "{t}: ¿está sobrevalorado?", "Mi opinión sincera de {t} (sin spoilers)", "Lo bueno y lo malo de {t}", "¿Por qué todos juegan {t}?", "{t} vs la competencia: ¿cuál es mejor?", "La verdad sobre la última actualización de {t}"],
+    reto: ["Terminé {t} sin morir (reto imposible)", "Reto de 24 horas en {t}", "Gané {t} con lo peor posible", "Reto: pasarme {t} sin recibir daño", "{t} pero con las reglas de mis suscriptores", "Intenté ser el número 1 en {t}", "Reto extremo en {t}: ¿lo logré?"]},
+    tags: ['gameplay', 'gaming', 'videojuegos', 'gamer', 'partida', 'guia de juego', 'trucos', 'mejores momentos', "let's play"],
+    hash: ['gaming', 'gameplay', 'videojuegos'],
+    cta: "🎮 ¿Qué juego quieres que probemos después? Déjalo en los comentarios.",
+    hooks: ["Si juegas {t}, esto te va a servir.", "Hoy descubrí algo de {t} que cambia todo.", "Nadie te dice esto sobre {t}...", "Llevo horas en {t} y esto es lo que aprendí.", "Mira lo que pasó en {t}, no lo vas a creer.", "Esto es lo que hacen los mejores en {t}."]},
+  cocina: {name: 'Cocina 🍳', tpl: {
+    tutorial: ["Cómo hacer {t} paso a paso", "{t} fácil y rápido (receta casera)", "La receta perfecta de {t}", "Cómo hacer {t} como un chef en casa", "{t} en 15 minutos (sin complicarte)", "El truco para que {t} te salga perfecto", "{t} para principiantes: receta completa"],
+    lista: ["{n} recetas con {t} que te van a encantar", "{n} errores al cocinar {t}", "Top {n} formas de preparar {t}", "{n} trucos de cocina con {t}", "{n} ingredientes que mejoran tu {t}", "{n} ideas rápidas con {t} para la semana", "{n} secretos de {t} que usan los chefs"],
+    vlog: ["Cociné {t} todo el día (así quedó)", "Mi primera vez haciendo {t}", "Un día cocinando {t} para mi familia", "Probé la receta viral de {t}", "Hice {t} como en el restaurante", "Mi receta de {t} de toda la vida", "Así preparo {t} en casa"],
+    opinion: ["¿Vale la pena la receta viral de {t}?", "{t} casero vs comprado: ¿cuál gana?", "Mi opinión sobre {t} (probé varias recetas)", "¿Es {t} tan difícil como dicen?", "La verdad sobre {t} que nadie te cuenta", "{t}: ¿mito o realidad en la cocina?", "Probé {t} de 3 marcas y esto pasó"],
+    reto: ["Cociné {t} con $5", "Reto: {t} en 10 minutos", "Hice {t} sin receta (¿salió bien?)", "Reto de cocina: {t} con 3 ingredientes", "{t} barato vs caro: ¿hay diferencia?", "Cociné {t} durante 7 días seguidos", "Mi familia prueba mi {t} a ciegas"]},
+    tags: ['receta', 'recetas faciles', 'cocina casera', 'cocinar', 'receta paso a paso', 'comida casera', 'recetas rapidas', 'cocina facil'],
+    hash: ['recetas', 'cocina', 'recetasfaciles'],
+    cta: "🍳 ¿Qué receta quieres ver la próxima semana? Cuéntame en los comentarios.",
+    hooks: ["Esta receta de {t} te va a salvar la comida.", "Con {t} puedes hacer esto en minutos.", "El error que arruina tu {t} (y cómo evitarlo).", "Prepara {t} así y no vas a querer comerlo de otra forma.", "Lo que necesitas para {t}: solo esto.", "Te enseño mi truco para que {t} quede perfecto."]},
+  fitness: {name: 'Fitness 💪', tpl: {
+    tutorial: ["Cómo hacer {t} bien (técnica correcta)", "Rutina de {t} para principiantes", "{t} en casa sin equipo", "Cómo mejorar tu {t} en pocas semanas", "La mejor forma de entrenar {t}", "{t}: guía completa paso a paso", "Calentamiento ideal antes de {t}"],
+    lista: ["{n} ejercicios de {t} que debes hacer", "{n} errores que cometes en {t}", "Top {n} consejos para {t}", "{n} hábitos para mejorar tu {t}", "{n} mitos sobre {t}", "{n} cosas que cambié para mejorar mi {t}", "{n} ejercicios de {t} sin equipo"],
+    vlog: ["Hice {t} durante 30 días (esto pasó)", "Mi rutina de {t} de toda la semana", "Un día de entrenamiento: {t}", "Mi progreso real en {t}", "Así empecé con {t} desde cero", "Probé la rutina de {t} que se hizo viral", "Mi primera semana de {t}"],
+    opinion: ["¿Funciona {t} de verdad?", "{t}: ¿mito o realidad?", "Mi opinión honesta sobre {t}", "{t} en casa vs gimnasio: ¿cuál es mejor?", "La verdad sobre {t} que nadie te cuenta", "¿Vale la pena {t}? Lo probé", "Lo bueno y lo malo de {t}"],
+    reto: ["Reto de 30 días de {t}", "Hice {t} todos los días y esto pasó", "Reto: {t} durante 7 días", "{t} por 24 horas (lo intenté)", "Seguí la rutina de {t} de un pro", "Reto de {t} sin excusas", "Mi desafío de {t}: ¿lo logré?"]},
+    tags: ['fitness', 'entrenamiento', 'rutina', 'ejercicio en casa', 'gym', 'salud', 'rutina de ejercicios', 'entrenar'],
+    hash: ['fitness', 'entrenamiento', 'rutina'],
+    cta: "💪 Consulta con un profesional antes de empezar una rutina nueva. ¿Qué rutina quieres ver próximamente?",
+    hooks: ["Si quieres mejorar en {t}, deja de hacer esto.", "Esta rutina de {t} te toma solo unos minutos.", "Hacía {t} mal hasta que descubrí esto.", "Te muestro cómo hacer {t} bien desde el primer día.", "Lo que nadie te dice de {t}...", "Prueba esto en tu próximo entrenamiento de {t}."]},
+  finanzas: {name: 'Finanzas 💰', tpl: {
+    tutorial: ["Cómo empezar con {t} paso a paso", "{t} explicado fácil (para principiantes)", "Guía completa de {t}", "Cómo organizar tu {t} desde cero", "Cómo funciona {t} (sin palabras raras)", "Los primeros pasos con {t}", "Cómo evitar errores con {t}"],
+    lista: ["{n} errores que cometes con {t}", "{n} consejos de {t} para principiantes", "Top {n} hábitos para mejorar tu {t}", "{n} mitos sobre {t}", "{n} cosas que aprendí sobre {t}", "{n} herramientas gratis para {t}", "{n} preguntas frecuentes sobre {t}"],
+    vlog: ["Mi experiencia real con {t}", "Probé {t} durante 30 días", "Cómo organizo mi {t} cada mes", "Lo que aprendí con {t} (mi historia)", "Mi primer mes con {t}", "Así llevo mi {t} día a día", "Mis errores con {t} (para que no los repitas)"],
+    opinion: ["¿Vale la pena {t}?", "{t}: ¿mito o realidad?", "Mi opinión sobre {t}", "La verdad sobre {t} que nadie explica", "{t}: lo bueno y lo malo", "¿Es {t} para ti? Lo analizo", "Lo que nadie te dice de {t}"],
+    reto: ["Reto: {t} durante 30 días", "Intenté {t} con un presupuesto mínimo", "Reto de ahorro: {t} por una semana", "Probé {t} por 7 días (esto pasó)", "Reto de {t} sin gastos innecesarios", "Mi desafío de {t}: ¿lo logré?", "Seguí un plan de {t} durante un mes"]},
+    tags: ['finanzas personales', 'ahorro', 'presupuesto', 'educacion financiera', 'dinero', 'organizar gastos', 'finanzas para principiantes', 'consejos de dinero'],
+    hash: ['finanzas', 'ahorro', 'educacionfinanciera'],
+    cta: "📌 Este video es solo informativo y no es asesoramiento financiero. ¿Qué tema de finanzas quieres que explique?",
+    hooks: ["Si no sabes por dónde empezar con {t}, mira esto.", "El error con {t} que más cuesta caro.", "Te explico {t} sin palabras complicadas.", "Esto es lo que ojalá hubiera sabido antes de {t}.", "Lo que nadie te cuenta de {t}...", "En 5 minutos te explico {t}."]},
+  educacion: {name: 'Educación 📚', tpl: {
+    tutorial: ["Cómo aprender {t} rápido", "{t} explicado fácil", "Aprende {t} desde cero", "Cómo estudiar {t} sin aburrirte", "Guía completa para entender {t}", "El método más fácil para {t}", "{t} paso a paso para principiantes"],
+    lista: ["{n} trucos para aprender {t}", "{n} errores al estudiar {t}", "Top {n} recursos gratis para {t}", "{n} consejos para entender {t}", "{n} cosas que debes saber de {t}", "{n} hábitos de estudio para {t}", "{n} formas de recordar {t} para siempre"],
+    vlog: ["Estudié {t} durante 30 días", "Mi método para aprender {t}", "Un día estudiando {t} conmigo", "Así aprendí {t} desde cero", "Mi experiencia aprendiendo {t}", "Estudia conmigo: {t}", "Lo que aprendí de {t} esta semana"],
+    opinion: ["¿Vale la pena aprender {t}?", "{t}: ¿es tan difícil como dicen?", "Mi opinión sobre aprender {t} online", "La verdad sobre estudiar {t}", "{t}: ¿mito o realidad?", "¿Sirve de algo {t}? Te cuento", "Lo que nadie dice de aprender {t}"],
+    reto: ["Intenté aprender {t} en 7 días", "Reto: dominar {t} en 30 días", "Aprendí {t} sin profesor", "Reto de estudio: {t} todos los días", "Estudié {t} 1 hora diaria y esto pasó", "Aprender {t} en un fin de semana", "Mi desafío de {t}: ¿lo logré?"]},
+    tags: ['aprender', 'estudiar', 'educacion', 'tutorial', 'tecnicas de estudio', 'aprender rapido', 'clases', 'cursos gratis', 'explicado facil'],
+    hash: ['educacion', 'aprender', 'estudiar'],
+    cta: "📚 ¿Qué tema quieres que explique en el próximo video? Déjalo en los comentarios.",
+    hooks: ["Si te cuesta {t}, este video es para ti.", "Así aprendí {t} sin volverme loco.", "El método que me sirvió para entender {t}.", "Te explico {t} en pocos minutos.", "Esto es lo que nadie te enseña sobre {t}.", "Prueba esta técnica para {t}."]}
+};
+
+const PRO_KEY = 'ck_pro';
+const HASHES = (typeof PRO_HASHES !== 'undefined' && Array.isArray(PRO_HASHES)) ? PRO_HASHES : [];
+let proOn = HASHES.includes(store.get(PRO_KEY, ''));
+const normCode = s => s.toUpperCase().replace(/[^A-Z0-9]/g, '');
+async function sha256(s){
+  const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
+}
+
+function renderNichos(){
+  const cur = $('#gNicho').value || 'general';
+  $('#gNicho').innerHTML = Object.keys(PACKS).map(k =>
+    `<option value="${k}">${PACKS[k].free || proOn ? '' : '🔒 '}${PACKS[k].name}</option>`).join('');
+  $('#gNicho').value = cur;
+}
+function renderPro(){
+  if(proOn){
+    $('#proBox').innerHTML = '<h2>⭐ Pro activo</h2><small>Tienes todos los packs de nicho en este dispositivo. ¡Gracias por apoyar el proyecto!</small>';
+  }else{
+    $('#proBox').innerHTML = `<h2>⭐ Versión Pro</h2>
+      <small>Desbloquea los packs de Gaming, Cocina, Fitness, Finanzas y Educación: títulos, descripciones, tags y ganchos pensados para cada nicho.</small>
+      <label for="pCode">¿Ya tienes un código?</label>
+      <input id="pCode" placeholder="CK-XXXX-XXXX-XXXX" autocomplete="off" autocapitalize="characters" maxlength="24">
+      <button class="btn" id="pBtn">Activar Pro</button>
+      ${PRO_URL ? `<a class="btn sec" style="text-decoration:none;margin-left:8px" href="${PRO_URL}" target="_blank" rel="noopener">Conseguir Pro</a>` : '<p><small>Pronto vas a poder conseguir tu código desde aquí.</small></p>'}`;
+  }
+  renderNichos();
+}
+async function activatePro(){
+  const raw = ($('#pCode') || {}).value || '';
+  if(normCode(raw).length < 8){ toast('Escribe tu código'); return; }
+  if(!(window.crypto && crypto.subtle)){ toast('Abre la app desde su página web (https)'); return; }
+  const h = await sha256(normCode(raw));
+  if(HASHES.includes(h)){ store.set(PRO_KEY, h); proOn = true; renderPro(); toast('¡Pro activado! 🎉'); }
+  else toast('Código no válido');
+}
+$('#proBox').addEventListener('click', e => { if(e.target.closest('#pBtn')) activatePro(); });
+$('#proBox').addEventListener('keydown', e => { if(e.key === 'Enter' && e.target.id === 'pCode') activatePro(); });
+renderPro();
 
 /* ---------- Analizador de títulos ---------- */
 const norm = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
