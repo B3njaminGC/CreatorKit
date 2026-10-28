@@ -50,6 +50,18 @@ small{color:var(--mut)}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#232a4a;color:#fff;padding:10px 16px;border-radius:99px;opacity:0;transition:.25s;pointer-events:none;z-index:10}
 #toast.on{opacity:1}
 footer{text-align:center;padding:10px}
+.score{display:flex;align-items:center;gap:14px;margin:6px 0 10px}
+.score .num{font-size:2.4rem;font-weight:800;line-height:1;min-width:2.6ch}
+.score .num small{font-size:.9rem;font-weight:500}
+.score .lbl{font-weight:600}
+.score .bar{flex:1;margin:0}
+.crit{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:.93rem}
+.crit:last-child{border-bottom:0}
+.crit .ic{flex:none;width:1.4em;text-align:center}
+.crit .pts{flex:none;margin-left:auto;color:var(--mut);font-size:.78rem;white-space:nowrap}
+.crit em{display:block;font-style:normal;color:var(--mut);font-size:.85rem}
+.win{text-align:center;font-weight:600;color:var(--ok)}
+.atitle{font-size:.95rem;color:var(--mut);margin:0 0 4px;word-break:break-word}
 </style>
 </head>
 <body>
@@ -60,6 +72,7 @@ footer{text-align:center;padding:10px}
 
 <nav>
   <button data-tab="titulos" class="on">✨ Títulos</button>
+  <button data-tab="analizador">📊 Analizador</button>
   <button data-tab="calendario">📅 Calendario</button>
   <button data-tab="checklist">✅ Checklist</button>
   <button data-tab="ideas">💡 Ideas</button>
@@ -100,6 +113,20 @@ footer{text-align:center;padding:10px}
     <div class="card"><h2>Tags</h2><textarea id="gTags" style="min-height:90px"></textarea>
       <button class="btn sec sm" id="cTags" style="margin-top:8px">Copiar tags</button></div>
   </div>
+</section>
+
+<section id="analizador" hidden>
+  <div class="card">
+    <h2>Analizador de títulos</h2>
+    <small>Puntúa tu título de 0 a 100 y te dice cómo mejorarlo. Todo se calcula en tu dispositivo.</small>
+    <label for="aA">Título A</label>
+    <input id="aA" maxlength="120" placeholder="Pega o escribe tu título">
+    <label for="aB">Título B (opcional, para comparar)</label>
+    <input id="aB" maxlength="120" placeholder="Una segunda opción">
+    <label for="aK">Palabra clave principal (opcional)</label>
+    <input id="aK" maxlength="40" placeholder="Ej: edición de video">
+  </div>
+  <div id="aOut"></div>
 </section>
 
 <section id="calendario" hidden>
@@ -254,7 +281,7 @@ function runGen(){
   const type = $('#gTipo').value, tone = $('#gTono').value, canal = $('#gCanal').value.trim();
   const titles = genTitles(t, type, tone);
   $('#gTitulos').innerHTML = titles.map(x =>
-    `<div class="t"><span>${esc(x)}</span><b class="badge ${x.length > 60 ? 'warn' : ''}">${x.length}</b><button class="btn sec sm" data-copy="${esc(x)}">Copiar</button></div>`
+    `<div class="t"><span>${esc(x)}</span><b class="badge ${x.length > 60 ? 'warn' : ''}">${x.length}</b><button class="btn sec sm" data-score="${esc(x)}">Puntuar</button><button class="btn sec sm" data-copy="${esc(x)}">Copiar</button></div>`
   ).join('');
   $('#gDesc').value = genDesc(t, type, canal);
   $('#gTags').value = genTags(t, type);
@@ -263,7 +290,11 @@ function runGen(){
 }
 $('#gBtn').onclick = runGen;
 $('#gTema').addEventListener('keydown', e => { if(e.key === 'Enter') runGen(); });
-$('#gTitulos').addEventListener('click', e => { const b = e.target.closest('[data-copy]'); if(b) copy(b.dataset.copy); });
+$('#gTitulos').addEventListener('click', e => {
+  const s = e.target.closest('[data-score]');
+  if(s){ $('#aA').value = s.dataset.score; $('#aB').value = ''; $('#aK').value = $('#gTema').value.trim(); show('analizador'); runAnalyzer(); return; }
+  const b = e.target.closest('[data-copy]'); if(b) copy(b.dataset.copy);
+});
 $('#cDesc').onclick = () => copy($('#gDesc').value);
 $('#cTags').onclick = () => copy($('#gTags').value);
 
@@ -379,6 +410,102 @@ $('#imp').onchange = e => {
   };
   r.readAsText(f); e.target.value = '';
 };
+
+/* ---------- Analizador de títulos ---------- */
+const norm = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const POWER = new Set(['mejor','mejores','increible','increibles','gratis','facil','faciles','rapido','rapida','definitivo','definitiva','epico','epica','imposible','perfecto','perfecta','simple','esencial','esenciales','sorprendente','sorprendentes','impresionante','nuevo','nueva','completo','completa','guia','truco','trucos','secreto','secretos','brutal','urgente','profesional','ultimo','ultima','unico','unica','prohibido','viral','extremo','extrema']);
+const HOOK_START = /^(como|por que|que|cual|cuales|cuanto|cuantos|cuando|donde|quien)\b/;
+const HOOK_WORDS = /\b(nadie|nunca|jamas|antes de|despues de|sin|error|errores|verdad|mito|cambio|cambie|probe|intente|hice|descubri|asi|real)\b/;
+
+function analyzeTitle(raw, kw){
+  const title = raw.trim(), nt = norm(title), len = title.length;
+  const words = nt.split(/[^a-z0-9ñ]+/).filter(Boolean);
+  const items = [];
+  const add = (name, pts, max, ok, mid, bad, state) => items.push({name, pts, max, state, tip: state === 'ok' ? ok : state === 'mid' ? mid : bad});
+
+  // 1. Largo
+  if(len >= 30 && len <= 60) add('Largo', 20, 20, `${len} caracteres: se ve completo en YouTube.`, '', '', 'ok');
+  else if((len >= 20 && len < 30) || (len > 60 && len <= 70)) add('Largo', 12, 20, '', `${len} caracteres. Lo ideal es entre 30 y 60.`, '', 'mid');
+  else add('Largo', 4, 20, '', '', len < 20 ? `${len} caracteres: muy corto, agrega contexto o un beneficio.` : `${len} caracteres: se va a cortar en los resultados. Acórtalo a 60.`, 'bad');
+
+  // 2. Número
+  if(/\d/.test(title)) add('Número', 10, 10, 'Tiene un número: ayuda a prometer algo concreto.', '', '', 'ok');
+  else add('Número', 0, 10, '', '', 'Prueba con un número (ej: "5 trucos", "en 10 minutos").', 'bad');
+
+  // 3. Palabras de impacto
+  const power = words.filter(w => POWER.has(w));
+  if(power.length >= 2) add('Palabras de impacto', 15, 15, `Buenas palabras: ${[...new Set(power)].join(', ')}.`, '', '', 'ok');
+  else if(power.length === 1){
+    const sug = ['fácil', 'mejor', 'secreto', 'increíble', 'rápido'].filter(s => norm(s) !== power[0]).slice(0, 3).map(s => `"${s}"`).join(', ');
+    add('Palabras de impacto', 10, 15, '', `Solo una (${power[0]}). Suma otra como ${sug}.`, '', 'mid');
+  }
+  else add('Palabras de impacto', 0, 15, '', '', 'Agrega una palabra que genere interés: "fácil", "mejor", "secreto", "increíble".', 'bad');
+
+  // 4. Gancho de curiosidad
+  let hooks = 0;
+  if(/\?/.test(title)) hooks++;
+  if(HOOK_START.test(nt.replace(/^[^a-z0-9]+/, ''))) hooks++;
+  if(/[(\[]/.test(title)) hooks++;
+  if(HOOK_WORDS.test(nt)) hooks++;
+  if(hooks >= 2) add('Gancho de curiosidad', 15, 15, 'Despierta curiosidad: invita a hacer clic.', '', '', 'ok');
+  else if(hooks === 1) add('Gancho de curiosidad', 10, 15, '', 'Tiene algo de gancho. Prueba sumar una pregunta o un paréntesis.', '', 'mid');
+  else add('Gancho de curiosidad', 0, 15, '', '', 'Le falta intriga. Prueba con una pregunta, un "(sin trucos)" o un "nadie te cuenta".', 'bad');
+
+  // 5. Palabra clave
+  const k = norm(kw.trim());
+  if(k){
+    const idx = nt.indexOf(k);
+    if(idx === -1) add('Palabra clave', 0, 20, '', '', `No aparece "${kw.trim()}". Inclúyela, así te encuentran en las búsquedas.`, 'bad');
+    else if(idx <= 15) add('Palabra clave', 20, 20, 'La clave está al principio: ideal para buscar y para el clic.', '', '', 'ok');
+    else add('Palabra clave', 12, 20, '', 'Está en el título, pero conviene moverla al comienzo.', '', 'mid');
+  }
+
+  // 6. Formato
+  const letters = title.replace(/[^\p{L}]/gu, '');
+  const upper = letters.replace(/[^\p{Lu}]/gu, '').length;
+  const marks = (title.match(/[!?]/g) || []).length;
+  if(letters.length > 5 && upper / letters.length > 0.6) add('Formato', 0, 10, '', '', 'Demasiadas MAYÚSCULAS: parece spam. Usa solo en una palabra.', 'bad');
+  else if(marks > 2 || /(.)\1{3,}/.test(title)) add('Formato', 5, 10, '', 'Demasiados signos o letras repetidas. Deja uno solo.', '', 'mid');
+  else add('Formato', 10, 10, 'Formato limpio.', '', '', 'ok');
+
+  // 7. Claridad
+  const wc = title.split(/\s+/).filter(Boolean).length;
+  if(wc >= 4 && wc <= 12) add('Claridad', 10, 10, `${wc} palabras: fácil de leer de un vistazo.`, '', '', 'ok');
+  else if(wc === 3 || (wc >= 13 && wc <= 15)) add('Claridad', 5, 10, '', `${wc} palabras. Apunta a entre 4 y 12.`, '', 'mid');
+  else add('Claridad', 0, 10, '', '', wc < 3 ? 'Muy corto para que se entienda de qué trata.' : 'Demasiado largo: recorta palabras de relleno.', 'bad');
+
+  const pts = items.reduce((a, i) => a + i.pts, 0), max = items.reduce((a, i) => a + i.max, 0);
+  const score = Math.round(pts / max * 100);
+  const label = score >= 80 ? 'Excelente' : score >= 60 ? 'Bueno' : score >= 40 ? 'Mejorable' : 'Débil';
+  const color = score >= 80 ? 'var(--ok)' : score >= 60 ? '#ffb84d' : 'var(--ac)';
+  return {title, score, label, color, items};
+}
+
+function renderAnalysis(r, tag){
+  const icon = {ok: '✅', mid: '⚠️', bad: '❌'};
+  return `<div class="card">
+    ${tag ? `<p class="atitle"><b>${tag}:</b> ${esc(r.title)}</p>` : ''}
+    <div class="score"><div class="num" style="color:${r.color}">${r.score}<small>/100</small></div>
+      <div style="flex:1"><div class="lbl" style="color:${r.color}">${r.label}</div><div class="bar"><span style="width:${r.score}%"></span></div></div></div>
+    ${r.items.map(i => `<div class="crit"><span class="ic">${icon[i.state]}</span><div><b>${i.name}</b><em>${esc(i.tip)}</em></div><span class="pts">${i.pts}/${i.max}</span></div>`).join('')}
+  </div>`;
+}
+
+function runAnalyzer(){
+  const a = $('#aA').value.trim(), b = $('#aB').value.trim(), kw = $('#aK').value;
+  if(!a && !b){ $('#aOut').innerHTML = '<p class="empty">Escribe un título para ver su puntaje.</p>'; return; }
+  let h = '';
+  if(a && b){
+    const ra = analyzeTitle(a, kw), rb = analyzeTitle(b, kw);
+    const verdict = ra.score === rb.score ? 'Empate: elige el que mejor te represente.' : `Gana el título ${ra.score > rb.score ? 'A' : 'B'} por ${Math.abs(ra.score - rb.score)} puntos.`;
+    h = `<div class="card win">${verdict}</div>` + renderAnalysis(ra, 'A') + renderAnalysis(rb, 'B');
+  }else{
+    h = renderAnalysis(analyzeTitle(a || b, kw), '');
+  }
+  $('#aOut').innerHTML = h;
+}
+['#aA', '#aB', '#aK'].forEach(s => $(s).addEventListener('input', runAnalyzer));
+runAnalyzer();
 
 function renderAll(){ renderCal(); renderVideos(); renderChecks(); renderIdeas(); }
 renderAll();
