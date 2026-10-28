@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0f1220">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<title>CreatorKit</title>
+<style>
+:root{--bg:#0f1220;--card:#181c30;--line:#2a3050;--tx:#eef0ff;--mut:#9aa1c7;--ac:#ff4d5e;--ac2:#7c5cff;--ok:#38d39f}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{padding:16px 12px 8px;text-align:center}
+h1{margin:0;font-size:1.35rem;letter-spacing:.3px}
+h1 span{color:var(--ac)}
+header p{margin:2px 0 0;color:var(--mut);font-size:.85rem}
+nav{display:flex;gap:6px;padding:8px 12px;max-width:780px;margin:0 auto;overflow-x:auto;position:sticky;top:0;background:var(--bg);z-index:5}
+nav button{flex:1;min-width:max-content;padding:10px 12px;border:1px solid var(--line);background:var(--card);color:var(--mut);border-radius:10px;font-size:.95rem;cursor:pointer}
+nav button.on{background:linear-gradient(135deg,var(--ac),var(--ac2));color:#fff;border-color:transparent}
+main{max-width:780px;margin:8px auto;padding:0 12px 80px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+label{display:block;font-size:.85rem;color:var(--mut);margin:10px 0 4px}
+input,select,textarea{width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:#10142a;color:var(--tx);font:inherit}
+textarea{min-height:150px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn{display:inline-block;padding:11px 16px;border:0;border-radius:10px;background:linear-gradient(135deg,var(--ac),var(--ac2));color:#fff;font:inherit;font-weight:600;cursor:pointer;margin-top:12px}
+.btn.sec{background:#232a4a;color:var(--tx);font-weight:500}
+.btn.sm{padding:6px 10px;margin:0;font-size:.85rem}
+h2{font-size:1.05rem;margin:0 0 4px}
+.row{display:flex;align-items:center;gap:8px;justify-content:space-between}
+.x{background:none;border:0;color:var(--mut);font-size:1.1rem;cursor:pointer;padding:4px 8px}
+.t{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line)}
+.t:last-child{border-bottom:0}
+.t span{flex:1}
+.badge{font-size:.72rem;padding:2px 7px;border-radius:99px;background:#232a4a;color:var(--mut);white-space:nowrap}
+.badge.warn{background:#4a2330;color:#ff9aa6}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:8px}
+.dh{text-align:center;color:var(--mut);font-size:.75rem;padding:2px 0}
+.day{position:relative;aspect-ratio:1;border:1px solid var(--line);background:#10142a;color:var(--tx);border-radius:8px;font:inherit;font-size:.85rem;cursor:pointer}
+.day.today{border-color:var(--ac)}
+.day.has{background:#242b52}
+.day i{position:absolute;right:3px;bottom:2px;font-size:.65rem;font-style:normal;color:var(--ok)}
+.bar{height:8px;background:#10142a;border-radius:99px;overflow:hidden;margin:8px 0 4px}
+.bar span{display:block;height:100%;background:linear-gradient(90deg,var(--ac),var(--ac2))}
+.chk{display:flex;align-items:center;gap:10px;margin:0;padding:8px 0;color:var(--tx);font-size:.95rem}
+.chk input{width:20px;height:20px}
+.empty{color:var(--mut);text-align:center;padding:14px}
+small{color:var(--mut)}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#232a4a;color:#fff;padding:10px 16px;border-radius:99px;opacity:0;transition:.25s;pointer-events:none;z-index:10}
+#toast.on{opacity:1}
+footer{text-align:center;padding:10px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Creator<span>Kit</span></h1>
+  <p>Herramientas gratis para creadores de contenido</p>
+</header>
+
+<nav>
+  <button data-tab="titulos" class="on">✨ Títulos</button>
+  <button data-tab="calendario">📅 Calendario</button>
+  <button data-tab="checklist">✅ Checklist</button>
+  <button data-tab="ideas">💡 Ideas</button>
+</nav>
+
+<main>
+<section id="titulos">
+  <div class="card">
+    <h2>Generador de títulos, descripción y tags</h2>
+    <small>Escribe el tema de tu video y elige el estilo.</small>
+    <label for="gTema">Tema del video</label>
+    <input id="gTema" placeholder="Ej: edición de video, Minecraft, cocina fácil" maxlength="80">
+    <div class="grid2">
+      <div><label for="gTipo">Tipo de video</label>
+        <select id="gTipo">
+          <option value="tutorial">Tutorial</option>
+          <option value="lista">Lista / Top</option>
+          <option value="vlog">Vlog / Experiencia</option>
+          <option value="opinion">Opinión / Reacción</option>
+          <option value="reto">Reto</option>
+        </select></div>
+      <div><label for="gTono">Estilo</label>
+        <select id="gTono">
+          <option value="normal">Normal</option>
+          <option value="intriga">Con intriga</option>
+          <option value="urgencia">Con urgencia</option>
+        </select></div>
+    </div>
+    <label for="gCanal">Nombre de tu canal (opcional)</label>
+    <input id="gCanal" placeholder="Para la descripción" maxlength="60">
+    <button class="btn" id="gBtn">Generar</button>
+  </div>
+  <div id="gOut" hidden>
+    <div class="card"><h2>Títulos</h2><div id="gTitulos"></div>
+      <small>Tip: los títulos de hasta 60 caracteres se ven completos en YouTube.</small></div>
+    <div class="card"><h2>Descripción</h2><textarea id="gDesc"></textarea>
+      <button class="btn sec sm" id="cDesc" style="margin-top:8px">Copiar descripción</button></div>
+    <div class="card"><h2>Tags</h2><textarea id="gTags" style="min-height:90px"></textarea>
+      <button class="btn sec sm" id="cTags" style="margin-top:8px">Copiar tags</button></div>
+  </div>
+</section>
+
+<section id="calendario" hidden>
+  <div class="card">
+    <div class="row">
+      <button class="btn sec sm" id="prevM">◀</button>
+      <h2 id="calTitle"></h2>
+      <button class="btn sec sm" id="nextM">▶</button>
+    </div>
+    <div class="cal" id="grid"></div>
+  </div>
+  <div class="card">
+    <h2>Programar un video</h2>
+    <label for="vTitulo">Título o idea</label>
+    <input id="vTitulo" maxlength="100">
+    <div class="grid2">
+      <div><label for="vFecha">Fecha</label><input type="date" id="vFecha"></div>
+      <div><label for="vEstado">Estado</label><select id="vEstado"></select></div>
+    </div>
+    <button class="btn" id="vAdd">Agregar</button>
+  </div>
+  <div class="card"><h2>Mis videos</h2><div id="vList"></div></div>
+</section>
+
+<section id="checklist" hidden>
+  <div class="card">
+    <h2>Nuevo video en preparación</h2>
+    <label for="cNombre">Nombre del video</label>
+    <input id="cNombre" maxlength="100">
+    <button class="btn" id="cAdd">Crear checklist</button>
+  </div>
+  <div id="checkList"></div>
+</section>
+
+<section id="ideas" hidden>
+  <div class="card">
+    <h2>Banco de ideas</h2>
+    <label for="iTexto">Anota una idea antes de que se te escape</label>
+    <input id="iTexto" maxlength="140">
+    <button class="btn" id="iAdd">Guardar idea</button>
+  </div>
+  <div class="card" id="iList"></div>
+</section>
+</main>
+
+<footer>
+  <small>Tus datos se guardan solo en este dispositivo.</small><br>
+  <button class="btn sec sm" id="exp" style="margin-top:8px">Exportar copia</button>
+  <button class="btn sec sm" id="impBtn" style="margin-top:8px">Importar copia</button>
+  <input type="file" id="imp" accept="application/json" hidden>
+</footer>
+<div id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+};
+const uid = () => Math.random().toString(36).slice(2, 9);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const shuffle = a => { a = a.slice(); for(let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+const STATES = ["Idea", "Grabando", "Editando", "Listo", "Publicado"];
+const STEPS = ["Idea y título", "Guion", "Grabación", "Edición", "Miniatura", "Título, descripción y tags", "Subida y programación", "Promoción en redes"];
+const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+
+let videos = store.get('videos', []);
+let checks = store.get('checks', []);
+let ideas  = store.get('ideas', []);
+const saveAll = () => { store.set('videos', videos); store.set('checks', checks); store.set('ideas', ideas); };
+
+function toast(msg){
+  const t = $('#toast'); t.textContent = msg; t.classList.add('on');
+  clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('on'), 1600);
+}
+async function copy(text){
+  try{ await navigator.clipboard.writeText(text); toast('Copiado ✓'); }
+  catch(e){
+    const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta);
+    ta.select(); try{ document.execCommand('copy'); toast('Copiado ✓'); }catch(_){ toast('No se pudo copiar'); }
+    ta.remove();
+  }
+}
+
+/* ---------- Pestañas ---------- */
+function show(id){
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === id));
+  document.querySelectorAll('main section').forEach(s => s.hidden = s.id !== id);
+  window.scrollTo(0, 0);
+}
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => show(b.dataset.tab));
+
+/* ---------- Generador ---------- */
+const TPL = {
+  tutorial: ["{t} paso a paso para principiantes","Aprende {t} en 10 minutos","Guía completa de {t}","Los errores más comunes con {t}","{t} desde cero (sin complicarte)","El truco que nadie te cuenta sobre {t}","Por qué {t} es más fácil de lo que crees","Cómo dominar {t} más rápido","{t}: todo lo que necesitas saber","Lo que me hubiera gustado saber antes de {t}"],
+  lista: ["{n} cosas que debes saber sobre {t}","Top {n} de {t}","{n} errores que cometes con {t}","{n} trucos de {t} que casi nadie conoce","Las {n} mejores ideas sobre {t}","{n} datos de {t} que te van a sorprender","{n} formas de mejorar en {t}","{n} cosas que cambiaría de {t}","{n} razones para empezar con {t}","{n} secretos de {t}"],
+  vlog: ["Mi experiencia con {t}","Probé {t} durante 30 días","Un día entero con {t}","Así fue mi primera vez con {t}","La verdad sobre {t}","Mi historia con {t}","Lo que aprendí con {t}","{t}: mi opinión sincera","Así me cambió {t}","Detrás de cámara de {t}"],
+  opinion: ["¿Vale la pena {t}?","{t}: ¿realmente funciona?","Mi opinión sobre {t}","{t} está sobrevalorado (o no)","La verdad sobre {t}, sin filtros","Reaccionando a {t}","Lo bueno y lo malo de {t}","{t}: ¿mito o realidad?","Por qué todos hablan de {t}","{t}: lo que nadie dice"],
+  reto: ["Intenté {t} por 24 horas","Reto: {t} durante 7 días","{t} barato vs caro","Probando {t} por primera vez","Reto imposible: {t}","Hice {t} todos los días y esto pasó","Así terminó mi reto de {t}","¿Puedo lograr {t} en 1 hora?","{t}: lo intento hasta lograrlo","Me desafiaron a hacer {t}"]
+};
+const SUF = {
+  normal: [""],
+  intriga: [" (no te lo esperas)", " (esto me sorprendió)", " ¿Lo sabías?"],
+  urgencia: [" (hazlo hoy)", " (antes de que sea tarde)", " ahora mismo"]
+};
+const INTRO = {
+  tutorial: "En este video te explico {t} de forma clara y sencilla, para que lo apliques desde hoy.",
+  lista: "Te muestro lo más importante sobre {t} en una lista fácil de seguir.",
+  vlog: "Te cuento mi experiencia real con {t}, sin filtros.",
+  opinion: "Doy mi opinión sincera sobre {t} y te cuento si realmente vale la pena.",
+  reto: "Hoy me animo a un reto con {t}. ¿Lo logré? Míralo hasta el final."
+};
+const EXTRA_TAGS = {
+  tutorial: ['tutorial','aprender','guia'],
+  lista: ['top','mejores','lista'],
+  vlog: ['vlog','mi experiencia'],
+  opinion: ['opinion','review','reaccion'],
+  reto: ['reto','challenge','desafio']
+};
+
+function genTitles(t, type, tone){
+  const n = pick([5, 7, 10]);
+  return shuffle(TPL[type]).slice(0, 8).map(s => {
+    let x = s.split('{t}').join(t).split('{n}').join(n);
+    x = x.charAt(0).toUpperCase() + x.slice(1);
+    if(!x.endsWith('?')) x += pick(SUF[tone]);
+    return x;
+  });
+}
+function genDesc(t, type, canal){
+  const tag = '#' + t.replace(/[^\p{L}\p{N}]+/gu, '');
+  return INTRO[type].split('{t}').join(t) +
+    "\n\n⏱️ Capítulos:\n00:00 Introducción\n00:00 ...\n00:00 Conclusión" +
+    "\n\n👍 Si te sirvió, dale like y suscríbete" + (canal ? " a " + canal : "") + " para no perderte los próximos videos." +
+    "\n💬 Cuéntame en los comentarios qué opinas de " + t + "." +
+    "\n\n" + tag + " #" + type;
+}
+function genTags(t, type){
+  const y = new Date().getFullYear();
+  const base = [t, 'como ' + t, t + ' tutorial', t + ' para principiantes', t + ' ' + y, 'que es ' + t, 'mejor ' + t, t + ' consejos', t + ' paso a paso'];
+  const words = t.split(/\s+/).filter(w => w.length > 3);
+  const all = [...new Set([...base, ...words, ...EXTRA_TAGS[type]].map(s => s.toLowerCase()))];
+  const out = []; let len = 0;
+  for(const s of all){ if(len + s.length + 2 > 480) break; out.push(s); len += s.length + 2; }
+  return out.join(', ');
+}
+function runGen(){
+  const t = $('#gTema').value.trim();
+  if(!t){ toast('Escribe el tema primero'); $('#gTema').focus(); return; }
+  const type = $('#gTipo').value, tone = $('#gTono').value, canal = $('#gCanal').value.trim();
+  const titles = genTitles(t, type, tone);
+  $('#gTitulos').innerHTML = titles.map(x =>
+    `<div class="t"><span>${esc(x)}</span><b class="badge ${x.length > 60 ? 'warn' : ''}">${x.length}</b><button class="btn sec sm" data-copy="${esc(x)}">Copiar</button></div>`
+  ).join('');
+  $('#gDesc').value = genDesc(t, type, canal);
+  $('#gTags').value = genTags(t, type);
+  $('#gOut').hidden = false;
+  $('#gOut').scrollIntoView({behavior: 'smooth'});
+}
+$('#gBtn').onclick = runGen;
+$('#gTema').addEventListener('keydown', e => { if(e.key === 'Enter') runGen(); });
+$('#gTitulos').addEventListener('click', e => { const b = e.target.closest('[data-copy]'); if(b) copy(b.dataset.copy); });
+$('#cDesc').onclick = () => copy($('#gDesc').value);
+$('#cTags').onclick = () => copy($('#gTags').value);
+
+/* ---------- Calendario ---------- */
+let cal = new Date(); cal.setDate(1);
+const pad = n => String(n).padStart(2, '0');
+const isoOf = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`;
+const todayISO = () => { const d = new Date(); return isoOf(d.getFullYear(), d.getMonth(), d.getDate()); };
+$('#vEstado').innerHTML = STATES.map(s => `<option>${s}</option>`).join('');
+$('#vFecha').value = todayISO();
+
+function renderCal(){
+  const y = cal.getFullYear(), m = cal.getMonth();
+  $('#calTitle').textContent = MESES[m] + ' ' + y;
+  const first = (new Date(y, m, 1).getDay() + 6) % 7;
+  const days = new Date(y, m + 1, 0).getDate();
+  let h = ['L','M','M','J','V','S','D'].map(d => `<div class="dh">${d}</div>`).join('');
+  for(let i = 0; i < first; i++) h += '<div></div>';
+  for(let d = 1; d <= days; d++){
+    const iso = isoOf(y, m, d);
+    const c = videos.filter(v => v.fecha === iso).length;
+    h += `<button class="day${iso === todayISO() ? ' today' : ''}${c ? ' has' : ''}" data-day="${iso}">${d}${c ? `<i>${c}</i>` : ''}</button>`;
+  }
+  $('#grid').innerHTML = h;
+}
+function renderVideos(){
+  const list = videos.slice().sort((a, b) => (a.fecha || '').localeCompare(b.fecha || ''));
+  $('#vList').innerHTML = list.map(v => {
+    const f = v.fecha ? v.fecha.split('-').reverse().slice(0, 2).join('/') : '--';
+    return `<div class="t"><b class="badge">${f}</b><span>${esc(v.titulo)}</span>
+      <select data-est="${v.id}" style="width:auto;padding:6px">${STATES.map(s => `<option${s === v.estado ? ' selected' : ''}>${s}</option>`).join('')}</select>
+      <button class="x" data-del="${v.id}">✕</button></div>`;
+  }).join('') || '<p class="empty">Todavía no programaste videos.</p>';
+}
+$('#grid').addEventListener('click', e => { const b = e.target.closest('[data-day]'); if(b){ $('#vFecha').value = b.dataset.day; $('#vTitulo').focus(); } });
+$('#prevM').onclick = () => { cal.setMonth(cal.getMonth() - 1); renderCal(); };
+$('#nextM').onclick = () => { cal.setMonth(cal.getMonth() + 1); renderCal(); };
+$('#vAdd').onclick = () => {
+  const titulo = $('#vTitulo').value.trim();
+  if(!titulo){ toast('Escribe un título o idea'); return; }
+  videos.push({id: uid(), titulo, fecha: $('#vFecha').value, estado: $('#vEstado').value});
+  saveAll(); $('#vTitulo').value = ''; renderCal(); renderVideos(); toast('Agregado ✓');
+};
+$('#vList').addEventListener('click', e => {
+  const b = e.target.closest('[data-del]');
+  if(b){ videos = videos.filter(v => v.id !== b.dataset.del); saveAll(); renderCal(); renderVideos(); }
+});
+$('#vList').addEventListener('change', e => {
+  const s = e.target.closest('[data-est]');
+  if(s){ const v = videos.find(x => x.id === s.dataset.est); if(v){ v.estado = s.value; saveAll(); } }
+});
+
+/* ---------- Checklist ---------- */
+function renderChecks(){
+  $('#checkList').innerHTML = checks.map(c => {
+    const done = c.steps.filter(Boolean).length, pct = Math.round(done / STEPS.length * 100);
+    return `<div class="card"><div class="row"><b>${esc(c.nombre)}</b><button class="x" data-cdel="${c.id}">✕</button></div>
+      <div class="bar"><span style="width:${pct}%"></span></div><small>${done}/${STEPS.length} · ${pct}%</small>
+      ${STEPS.map((s, i) => `<label class="chk"><input type="checkbox" data-c="${c.id}" data-i="${i}"${c.steps[i] ? ' checked' : ''}> ${s}</label>`).join('')}</div>`;
+  }).join('') || '<p class="empty">Aún no tienes videos en preparación.</p>';
+}
+$('#cAdd').onclick = () => {
+  const nombre = $('#cNombre').value.trim();
+  if(!nombre){ toast('Escribe el nombre del video'); return; }
+  checks.unshift({id: uid(), nombre, steps: STEPS.map(() => false)});
+  saveAll(); $('#cNombre').value = ''; renderChecks();
+};
+$('#checkList').addEventListener('change', e => {
+  const i = e.target.dataset.i; if(i === undefined) return;
+  const c = checks.find(x => x.id === e.target.dataset.c);
+  if(c){ c.steps[+i] = e.target.checked; saveAll(); renderChecks(); }
+});
+$('#checkList').addEventListener('click', e => {
+  const b = e.target.closest('[data-cdel]');
+  if(b){ checks = checks.filter(x => x.id !== b.dataset.cdel); saveAll(); renderChecks(); }
+});
+
+/* ---------- Ideas ---------- */
+function renderIdeas(){
+  $('#iList').innerHTML = ideas.map(i =>
+    `<div class="t"><span>${esc(i.texto)}</span><button class="btn sec sm" data-use="${i.id}">Usar</button><button class="x" data-idel="${i.id}">✕</button></div>`
+  ).join('') || '<p class="empty">Tu banco de ideas está vacío.</p>';
+}
+$('#iAdd').onclick = () => {
+  const texto = $('#iTexto').value.trim();
+  if(!texto){ toast('Escribe tu idea'); return; }
+  ideas.unshift({id: uid(), texto}); saveAll(); $('#iTexto').value = ''; renderIdeas(); toast('Idea guardada ✓');
+};
+$('#iTexto').addEventListener('keydown', e => { if(e.key === 'Enter') $('#iAdd').click(); });
+$('#iList').addEventListener('click', e => {
+  const d = e.target.closest('[data-idel]');
+  if(d){ ideas = ideas.filter(x => x.id !== d.dataset.idel); saveAll(); renderIdeas(); return; }
+  const u = e.target.closest('[data-use]');
+  if(u){ const i = ideas.find(x => x.id === u.dataset.use); if(i){ $('#gTema').value = i.texto; show('titulos'); $('#gTema').focus(); } }
+});
+
+/* ---------- Copia de seguridad ---------- */
+$('#exp').onclick = () => {
+  const blob = new Blob([JSON.stringify({videos, checks, ideas})], {type: 'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'creatorkit-copia.json'; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
+$('#impBtn').onclick = () => $('#imp').click();
+$('#imp').onchange = e => {
+  const f = e.target.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try{
+      const d = JSON.parse(r.result);
+      if(!Array.isArray(d.videos) || !Array.isArray(d.checks) || !Array.isArray(d.ideas)) throw 0;
+      videos = d.videos; checks = d.checks; ideas = d.ideas; saveAll(); renderAll(); toast('Copia importada ✓');
+    }catch(_){ toast('Archivo no válido'); }
+  };
+  r.readAsText(f); e.target.value = '';
+};
+
+function renderAll(){ renderCal(); renderVideos(); renderChecks(); renderIdeas(); }
+renderAll();
+
+if('serviceWorker' in navigator && location.protocol.indexOf('http') === 0){
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
