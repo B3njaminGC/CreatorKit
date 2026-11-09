@@ -273,7 +273,6 @@ input[type=file]{padding:9px}
 </footer>
 <div id="toast"></div>
 
-<script src="pro-codes.js"></script>
 <script>
 const $ = s => document.querySelector(s);
 const store = {
@@ -378,9 +377,8 @@ function runGen(){
   const t = $('#gTema').value.trim();
   if(!t){ toast('Escribe el tema primero'); $('#gTema').focus(); return; }
   const type = $('#gTipo').value, tone = $('#gTono').value, canal = $('#gCanal').value.trim();
-  const nicho = $('#gNicho').value;
-  if(!PACKS[nicho].free && !proOn){ toast('Ese pack es Pro 🔒'); $('#proBox').scrollIntoView({behavior: 'smooth'}); return; }
-  const pk = PACKS[nicho];
+  const pk = getPack($('#gNicho').value);
+  if(!pk){ toast('Ese pack es Pro 🔒'); $('#proBox').scrollIntoView({behavior: 'smooth'}); return; }
   const titles = genTitles(t, type, tone, pk);
   $('#gHooks').innerHTML = shuffle(pk.hooks).slice(0, 5).map(h => { const x = h.split('{t}').join(t);
     return `<div class="t"><span>${esc(x)}</span><button class="btn sec sm" data-copy="${esc(x)}">Copiar</button></div>`; }).join('');
@@ -575,45 +573,179 @@ const PACKS = {
     hooks: ["Si te cuesta {t}, este video es para ti.", "Así aprendí {t} sin volverme loco.", "El método que me sirvió para entender {t}.", "Te explico {t} en pocos minutos.", "Esto es lo que nadie te enseña sobre {t}.", "Prueba esta técnica para {t}."]}
 };
 
-const PRO_KEY = 'ck_pro';
-const HASHES = (typeof PRO_HASHES !== 'undefined' && Array.isArray(PRO_HASHES)) ? PRO_HASHES : [];
-let proOn = HASHES.includes(store.get(PRO_KEY, ''));
+['gaming', 'cocina', 'fitness', 'finanzas', 'educacion'].forEach(k => { PACKS[k].free = true; });
+// Packs Pro: solo se muestran los nombres; el contenido vive en el servidor y llega únicamente a cuentas Pro.
+const PRO_LOCKED = [['tecnologia', 'Tecnología 💻'], ['viajes', 'Viajes ✈️'], ['emprendimiento', 'Emprendimiento 🚀'], ['belleza', 'Belleza y moda 💄'], ['humor', 'Humor 😂']];
+
+/* ---------- Cuenta y servidor (Supabase, sin librerías) ---------- */
+const SUPABASE_URL = 'https://waxblpcojiqamlxgspdd.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_ZGY9cpOsLZ1S0Hf5Yek-zw_Z_FDVI6K'; // clave pública: segura en el navegador gracias a las reglas (RLS) del servidor
+const SESSION_KEY = 'ck_session', PACKS_CACHE = 'ck_packs';
+const TYPES = ['tutorial', 'lista', 'vlog', 'opinion', 'reto'];
+
+const cloud = {
+  session: store.get(SESSION_KEY, null),
+  async req(path, {method = 'GET', body, token} = {}){
+    const headers = {apikey: SUPABASE_KEY, 'Content-Type': 'application/json'};
+    if(token) headers.Authorization = 'Bearer ' + token;
+    let res;
+    try{ res = await fetch(SUPABASE_URL + path, {method, headers, body: body === undefined ? undefined : JSON.stringify(body)}); }
+    catch(_){ const e = new Error('network'); e.network = true; throw e; }
+    let data = null; try{ data = await res.json(); }catch(_){}
+    if(!res.ok){
+      const e = new Error((data && (data.msg || data.error_description || data.message || data.error)) || 'HTTP ' + res.status);
+      e.status = res.status; e.code = data && (data.error_code || data.code); throw e;
+    }
+    return data;
+  },
+  save(s){ this.session = s; store.set(SESSION_KEY, s); },
+  fromAuth(d){ return {access_token: d.access_token, refresh_token: d.refresh_token, expires_at: Math.floor(Date.now() / 1000) + (d.expires_in || 3600), user: d.user}; },
+  async signUp(email, password){
+    const d = await this.req('/auth/v1/signup', {method: 'POST', body: {email, password}});
+    if(d && d.access_token){ this.save(this.fromAuth(d)); return true; }
+    return false; // el servidor pide confirmar el correo
+  },
+  async signIn(email, password){
+    this.save(this.fromAuth(await this.req('/auth/v1/token?grant_type=password', {method: 'POST', body: {email, password}})));
+  },
+  async token(){ // access_token vigente, renovándolo si hace falta
+    const s = this.session; if(!s) return null;
+    if(s.expires_at - 60 > Date.now() / 1000) return s.access_token;
+    try{
+      this.save(this.fromAuth(await this.req('/auth/v1/token?grant_type=refresh_token', {method: 'POST', body: {refresh_token: s.refresh_token}})));
+      return this.session.access_token;
+    }catch(e){ if(!e.network) this.save(null); throw e; } // sesión vencida: se borra; sin internet: se conserva
+  },
+  async signOut(){
+    const s = this.session; this.save(null);
+    if(s){ try{ await this.req('/auth/v1/logout', {method: 'POST', token: s.access_token}); }catch(_){} }
+  },
+  async rest(path, opts = {}){
+    const t = await this.token(); if(!t){ const e = new Error('Sin sesión'); e.status = 401; throw e; }
+    return this.req('/rest/v1/' + path, Object.assign({token: t}, opts));
+  },
+  rpc(fn, args){ return this.rest('rpc/' + fn, {method: 'POST', body: args}); }
+};
+
+let user = null, proOn = false, offline = false, authMode = 'login', proPacks = {};
+const getPack = k => PACKS[k] || proPacks[k] || null;
 const normCode = s => s.toUpperCase().replace(/[^A-Z0-9]/g, '');
-async function sha256(s){
-  const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
-  return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
+
+function friendly(e){
+  const m = (e && e.message) || '';
+  if(e && e.network) return 'Sin conexión. Revisa tu internet e inténtalo de nuevo.';
+  if(/invalid login|invalid_credentials/i.test(m + (e.code || ''))) return 'Correo o contraseña incorrectos.';
+  if(/already|exists/i.test(m + (e.code || ''))) return 'Ese correo ya tiene cuenta. Toca "Ya tengo cuenta" para entrar.';
+  if(/not confirmed|email_not_confirmed/i.test(m + (e.code || ''))) return 'Falta confirmar tu correo. Revisa tu bandeja de entrada.';
+  if(e && (e.status === 429 || /rate limit|over_.*_rate/i.test(m + (e.code || '')))) return 'Demasiados intentos. Espera unos minutos.';
+  if(/weak_password|password/i.test(m + (e.code || ''))) return 'La contraseña es demasiado débil. Usa al menos 8 caracteres.';
+  return m || 'Ocurrió un error. Inténtalo de nuevo.';
 }
 
 function renderNichos(){
   const cur = $('#gNicho').value || 'general';
-  $('#gNicho').innerHTML = Object.keys(PACKS).map(k =>
-    `<option value="${k}">${PACKS[k].free || proOn ? '' : '🔒 '}${PACKS[k].name}</option>`).join('');
-  $('#gNicho').value = cur;
+  const opt = (k, n, lock) => `<option value="${k}">${lock ? '🔒 ' : ''}${esc(n)}</option>`;
+  const free = Object.keys(PACKS).map(k => opt(k, PACKS[k].name, false));
+  const pro = proOn ? Object.keys(proPacks).map(k => opt(k, proPacks[k].name, false)) : PRO_LOCKED.map(([k, n]) => opt(k, n, true));
+  $('#gNicho').innerHTML = free.concat(pro).join('');
+  $('#gNicho').value = [...$('#gNicho').options].some(o => o.value === cur) ? cur : 'general';
 }
+
 function renderPro(){
-  if(proOn){
-    $('#proBox').innerHTML = '<h2>⭐ Pro activo</h2><small>Tienes todos los packs de nicho en este dispositivo. ¡Gracias por apoyar el proyecto!</small>';
-  }else{
-    $('#proBox').innerHTML = `<h2>⭐ Versión Pro</h2>
-      <small>Desbloquea los packs de Gaming, Cocina, Fitness, Finanzas y Educación: títulos, descripciones, tags y ganchos pensados para cada nicho.</small>
-      <label for="pCode">¿Ya tienes un código?</label>
+  const box = $('#proBox');
+  if(!user){
+    box.innerHTML = `<h2>⭐ Versión Pro</h2>
+      <small>Crea una cuenta gratis para usar Pro. Cuando lo actives, queda guardado en tu cuenta para siempre y lo tienes en todos tus dispositivos.</small>
+      <label for="acEmail">Correo</label>
+      <input id="acEmail" type="email" autocomplete="email" inputmode="email" maxlength="120" placeholder="tucorreo@ejemplo.com">
+      <label for="acPass">Contraseña (mínimo 8 caracteres)</label>
+      <input id="acPass" type="password" autocomplete="${authMode === 'login' ? 'current-password' : 'new-password'}" maxlength="72">
+      <button class="btn" id="acGo">${authMode === 'login' ? 'Entrar' : 'Crear cuenta'}</button>
+      <button class="btn sec" id="acSwitch" style="margin-left:8px">${authMode === 'login' ? 'No tengo cuenta' : 'Ya tengo cuenta'}</button>
+      <p><small id="acMsg"></small></p>`;
+  }else if(!proOn){
+    box.innerHTML = `<h2>⭐ Versión Pro</h2>
+      <small>Sesión: ${esc(user.email || '')}${offline ? ' · sin conexión, no se pudo revisar tu estado' : ''}</small>
+      <label for="pCode">Código Pro</label>
       <input id="pCode" placeholder="CK-XXXX-XXXX-XXXX" autocomplete="off" autocapitalize="characters" maxlength="24">
       <button class="btn" id="pBtn">Activar Pro</button>
-      ${PRO_URL ? `<a class="btn sec" style="text-decoration:none;margin-left:8px" href="${PRO_URL}" target="_blank" rel="noopener">Conseguir Pro</a>` : '<p><small>Pronto vas a poder conseguir tu código desde aquí.</small></p>'}`;
+      ${PRO_URL ? `<a class="btn sec" style="text-decoration:none;margin-left:8px" href="${esc(PRO_URL)}" target="_blank" rel="noopener">Conseguir Pro</a>` : ''}
+      <button class="btn sec" id="acOut" style="margin-left:8px">Cerrar sesión</button>
+      <p><small id="acMsg">${PRO_URL ? '' : 'Pronto vas a poder conseguir tu código desde aquí.'}</small></p>`;
+  }else{
+    box.innerHTML = `<h2>⭐ Pro activo</h2>
+      <small>${esc(user.email || '')} · ${Object.keys(proPacks).length} packs extra desbloqueados. ¡Gracias por apoyar el proyecto!</small>
+      <p><button class="btn sec sm" id="acOut">Cerrar sesión</button></p>`;
   }
   renderNichos();
 }
-async function activatePro(){
-  const raw = ($('#pCode') || {}).value || '';
-  if(normCode(raw).length < 8){ toast('Escribe tu código'); return; }
-  if(!(window.crypto && crypto.subtle)){ toast('Abre la app desde su página web (https)'); return; }
-  const h = await sha256(normCode(raw));
-  if(HASHES.includes(h)){ store.set(PRO_KEY, h); proOn = true; renderPro(); toast('¡Pro activado! 🎉'); }
-  else toast('Código no válido');
+const say = t => { const m = $('#acMsg'); if(m) m.textContent = t; };
+const setBusy = b => document.querySelectorAll('#proBox button').forEach(x => { x.disabled = b; });
+
+async function loadProPacks(){
+  const rows = await cloud.rest('packs?select=id,name,data');
+  proPacks = {};
+  (rows || []).forEach(r => { if(r && r.data && r.data.tpl && TYPES.every(t => Array.isArray(r.data.tpl[t]) && r.data.tpl[t].length)) proPacks[r.id] = Object.assign({name: r.name}, r.data); });
+  store.set(PACKS_CACHE, proPacks);
 }
-$('#proBox').addEventListener('click', e => { if(e.target.closest('#pBtn')) activatePro(); });
-$('#proBox').addEventListener('keydown', e => { if(e.key === 'Enter' && e.target.id === 'pCode') activatePro(); });
+async function refreshAccount(){
+  user = cloud.session ? cloud.session.user : null; proOn = false; offline = false; proPacks = {};
+  if(user){
+    try{
+      await cloud.token();
+      user = cloud.session ? cloud.session.user : null;
+      if(user){
+        const rows = await cloud.rest('pro_users?select=user_id&user_id=eq.' + encodeURIComponent(user.id));
+        proOn = Array.isArray(rows) && rows.length > 0;
+        if(proOn) await loadProPacks(); else store.set(PACKS_CACHE, null);
+      }
+    }catch(e){
+      if(e.network){
+        offline = true; const c = store.get(PACKS_CACHE, null);
+        if(c && cloud.session && Object.keys(c).length){ proPacks = c; proOn = true; offline = false; }
+      }
+      if(!cloud.session) user = null;
+    }
+  }
+  renderPro();
+}
+
+async function doAuth(){
+  const email = ($('#acEmail').value || '').trim(), pass = $('#acPass').value || '';
+  if(!/^\S+@\S+\.\S+$/.test(email)){ say('Escribe un correo válido.'); return; }
+  if(pass.length < 8){ say('La contraseña debe tener al menos 8 caracteres.'); return; }
+  setBusy(true); say('Un momento…');
+  try{
+    if(authMode === 'login') await cloud.signIn(email, pass);
+    else if(!(await cloud.signUp(email, pass))){ authMode = 'login'; setBusy(false); renderPro(); say('Te enviamos un correo para confirmar tu cuenta. Confírmalo y luego entra.'); return; }
+    await refreshAccount(); toast(authMode === 'login' ? 'Sesión iniciada ✓' : 'Cuenta creada ✓');
+  }catch(e){ setBusy(false); say(friendly(e)); return; }
+  setBusy(false);
+}
+async function redeem(){
+  const code = ($('#pCode') || {}).value || '';
+  if(normCode(code).length < 8){ say('Escribe tu código.'); return; }
+  setBusy(true); say('Verificando…');
+  try{
+    const ok = await cloud.rpc('redeem_code', {code});
+    if(ok === true){ await refreshAccount(); toast('¡Pro activado! 🎉'); setBusy(false); return; }
+    say('Código no válido o ya usado.');
+  }catch(e){ say(friendly(e)); }
+  setBusy(false);
+}
+$('#proBox').addEventListener('click', async e => {
+  const id = (e.target.closest('button') || {}).id;
+  if(id === 'acGo') doAuth();
+  else if(id === 'acSwitch'){ authMode = authMode === 'login' ? 'signup' : 'login'; renderPro(); }
+  else if(id === 'pBtn') redeem();
+  else if(id === 'acOut'){ await cloud.signOut(); store.set(PACKS_CACHE, null); authMode = 'login'; await refreshAccount(); toast('Sesión cerrada'); }
+});
+$('#proBox').addEventListener('keydown', e => {
+  if(e.key !== 'Enter') return;
+  if(e.target.id === 'acEmail' || e.target.id === 'acPass') doAuth(); else if(e.target.id === 'pCode') redeem();
+});
 renderPro();
+refreshAccount();
 
 /* ---------- Analizador de títulos ---------- */
 const norm = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();

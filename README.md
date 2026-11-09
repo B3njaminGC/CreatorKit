@@ -14,10 +14,18 @@ Abre `index.html` en el navegador, o publícalo con GitHub Pages (Settings → P
 
 Los datos se guardan solo en el dispositivo (localStorage). Al cambiar archivos, sube el número de `CACHE` en `sw.js` para que las apps instaladas se actualicen.
 
-## Vender Pro (sin servidor)
-1. Genera códigos: `node tools/generar-codigos.js 20` (crea `codigos-privados.txt`, que **no** se sube, y agrega los hashes a `pro-codes.js`).
-2. Sube `pro-codes.js` a GitHub para que los códigos nuevos funcionen.
+## Cuentas y Pro (Supabase, plan gratis)
+- Lo gratis (generador con 6 packs, analizador, miniaturas, calendario, checklist, ideas) funciona sin cuenta.
+- **Pro**: requiere cuenta gratis. Se activa con un código de **un solo uso** y queda guardado en la cuenta para siempre. Desbloquea packs extra (Tecnología, Viajes, Emprendimiento, Belleza y moda, Humor) cuyo contenido vive **solo en el servidor** (tabla `packs`, visible únicamente para cuentas Pro).
+- El esquema está en `supabase/schema.sql`. La clave `sb_publishable_…` del código es pública por diseño; la seguridad la dan las reglas RLS del servidor.
+
+### Vender Pro
+1. Genera códigos: `node tools/generar-codigos.js 20` (crea `codigos-privados.txt` y `codigos-sql.txt`; ninguno se sube a GitHub).
+2. Pega el contenido de `codigos-sql.txt` en Supabase → SQL Editor → Run.
 3. Entrega un código a cada comprador (Gumroad, Mercado Pago, Ko-fi, etc.).
 4. Pega tu link de pago en `PRO_URL` (dentro de `index.html`) para mostrar el botón "Conseguir Pro".
 
-Nunca subas `codigos-privados.txt`. Un código puede compartirse; para algo más estricto habría que validar online (por ejemplo con la API de licencias de Gumroad).
+## App de Android (APK)
+Actions → **Compilar APK** → Run workflow. Al crear una etiqueta `v1.0.0` el APK se publica como Release.
+
+Nota: los proyectos gratis de Supabase se pausan tras una semana sin uso (se reactivan desde su panel).

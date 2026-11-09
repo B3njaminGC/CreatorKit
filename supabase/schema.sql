@@ -1,5 +1,5 @@
 -- CreatorKit: cuentas + Pro real en Supabase (plan gratis).
--- Pégalo completo en Supabase → SQL Editor → Run. Se puede ejecutar más de una vez.
+-- Ya está aplicado en el proyecto de producción. Para recrearlo en otro proyecto: Supabase → SQL Editor → pegar → Run (una sola vez).
 
 -- 1) Quién tiene Pro (permanente para esa cuenta)
 create table if not exists public.pro_users (
@@ -25,13 +25,11 @@ alter table public.pro_users enable row level security;
 alter table public.pro_codes enable row level security;
 alter table public.packs     enable row level security;
 
-drop policy if exists "ver mi propio estado pro" on public.pro_users;
 create policy "ver mi propio estado pro" on public.pro_users
   for select to authenticated using (auth.uid() = user_id);
 
 -- pro_codes no tiene políticas a propósito: nadie puede leerla ni escribirla desde la app.
 
-drop policy if exists "packs solo para cuentas pro" on public.packs;
 create policy "packs solo para cuentas pro" on public.packs
   for select to authenticated
   using (exists (select 1 from public.pro_users p where p.user_id = auth.uid()));
@@ -74,3 +72,7 @@ $$;
 
 revoke all on function public.redeem_code(text) from public, anon;
 grant execute on function public.redeem_code(text) to authenticated;
+
+-- 5) Permisos explícitos (no dependen de la configuración "expose new tables" del proyecto)
+grant select on public.pro_users to authenticated;
+grant select on public.packs     to authenticated;
