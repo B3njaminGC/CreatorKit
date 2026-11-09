@@ -71,6 +71,13 @@ input[type=file]{padding:9px}
 .sws{display:flex;gap:10px;flex-wrap:wrap}
 .sw{width:38px;height:38px;border-radius:50%;border:3px solid var(--line);cursor:pointer;padding:0}
 .sw.on{border-color:#fff}
+.tt{padding:10px 0;border-bottom:1px solid var(--line)}
+.tt:last-child{border-bottom:0}
+.tt .txt{display:block;margin-bottom:8px;word-break:break-word}
+.tt .acts{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+details.card>summary{cursor:pointer;font-weight:700;list-style:none}
+details.card>summary::-webkit-details-marker{display:none}
+details.card[open]>summary{margin-bottom:6px}
 </style>
 </head>
 <body>
@@ -117,6 +124,7 @@ input[type=file]{padding:9px}
     <input id="gCanal" placeholder="Para la descripción" maxlength="60">
     <button class="btn" id="gBtn">Generar</button>
   </div>
+  <details class="card" id="favBox" hidden><summary id="favSum">⭐ Mis favoritos</summary><div id="favList"></div></details>
   <div class="card" id="proBox"></div>
   <div id="gOut" hidden>
     <div class="card"><h2>Títulos</h2><div id="gTitulos"></div>
@@ -291,7 +299,8 @@ const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto"
 let videos = store.get('videos', []);
 let checks = store.get('checks', []);
 let ideas  = store.get('ideas', []);
-const saveAll = () => { store.set('videos', videos); store.set('checks', checks); store.set('ideas', ideas); };
+let favs   = store.get('favs', []);
+const saveAll = () => { store.set('videos', videos); store.set('checks', checks); store.set('ideas', ideas); store.set('favs', favs); };
 
 function toast(msg){
   const t = $('#toast'); t.textContent = msg; t.classList.add('on');
@@ -322,11 +331,30 @@ const TPL = {
   opinion: ["¿Vale la pena {t}?","{t}: ¿realmente funciona?","Mi opinión sobre {t}","{t} está sobrevalorado (o no)","La verdad sobre {t}, sin filtros","Reaccionando a {t}","Lo bueno y lo malo de {t}","{t}: ¿mito o realidad?","Por qué todos hablan de {t}","{t}: lo que nadie dice"],
   reto: ["Intenté {t} por 24 horas","Reto: {t} durante 7 días","{t} barato vs caro","Probando {t} por primera vez","Reto imposible: {t}","Hice {t} todos los días y esto pasó","Así terminó mi reto de {t}","¿Puedo lograr {t} en 1 hora?","{t}: lo intento hasta lograrlo","Me desafiaron a hacer {t}"]
 };
-const SUF = {
-  normal: [""],
-  intriga: [" (no te lo esperas)", " (esto me sorprendió)", " ¿Lo sabías?"],
-  urgencia: [" (hazlo hoy)", " (antes de que sea tarde)", " ahora mismo"]
+// Adornos opcionales para el estilo "intriga" / "urgencia": varios al principio o al final, sin repetir en la misma tanda.
+const DECOR = {
+  intriga: {
+    pre: ["Nadie te cuenta esto: ", "Ojo: ", "La verdad: ", "Lo que no sabías: ", "Atención: ", "Te va a sorprender: "],
+    suf: [" (no te lo esperas)", " (esto me sorprendió)", " (la verdad)", " (el final te sorprende)", " (te lo explico)", " (lo que nadie dice)", " (vale la pena)", " (y esto pasó)"]
+  },
+  urgencia: {
+    pre: ["Importante: ", "Hazlo ya: ", "Antes de empezar: ", "Mira esto primero: ", "Atención: ", "No te lo pierdas: "],
+    suf: [" (hazlo hoy)", " (antes de que sea tarde)", " ahora mismo", " (empieza hoy)", " (no lo dejes para después)", " (te conviene saberlo ya)", " (mira esto antes)", " (esta semana)"]
+  }
 };
+function decorate(x, tone, used){
+  const d = DECOR[tone];
+  if(!d || Math.random() < 0.35) return x; // ~1 de cada 3 queda sin adorno
+  const opts = [];
+  d.pre.forEach(p => { if(!used.has(p)) opts.push(['pre', p]); });
+  if(!x.endsWith('?')) d.suf.forEach(q => { if(!used.has(q)) opts.push(['suf', q]); });
+  if(!opts.length) return x;
+  const [kind, txt] = pick(opts);
+  const y = kind === 'pre' ? txt + x : x + txt;
+  if(y.length > 65) return x;
+  used.add(txt);
+  return y;
+}
 const INTRO = {
   tutorial: "En este video te explico {t} de forma clara y sencilla, para que lo apliques desde hoy.",
   lista: "Te muestro lo más importante sobre {t} en una lista fácil de seguir.",
@@ -347,11 +375,11 @@ function genTitles(t, type, tone, pk){
   const pool = pk && pk.tpl
     ? shuffle(shuffle(pk.tpl[type]).slice(0, 7).concat(shuffle(TPL[type]).slice(0, 1)))
     : shuffle(TPL[type]);
+  const used = new Set();
   return pool.slice(0, 8).map(s => {
     let x = s.split('{t}').join(t).split('{n}').join(n);
     x = x.charAt(0).toUpperCase() + x.slice(1);
-    if(!x.endsWith('?')) x += pick(SUF[tone]);
-    return x;
+    return decorate(x, tone, used);
   });
 }
 function genDesc(t, type, canal, pk){
@@ -381,10 +409,8 @@ function runGen(){
   if(!pk){ toast('Ese pack es Pro 🔒'); $('#proBox').scrollIntoView({behavior: 'smooth'}); return; }
   const titles = genTitles(t, type, tone, pk);
   $('#gHooks').innerHTML = shuffle(pk.hooks).slice(0, 5).map(h => { const x = h.split('{t}').join(t);
-    return `<div class="t"><span>${esc(x)}</span><button class="btn sec sm" data-copy="${esc(x)}">Copiar</button></div>`; }).join('');
-  $('#gTitulos').innerHTML = titles.map(x =>
-    `<div class="t"><span>${esc(x)}</span><b class="badge ${x.length > 60 ? 'warn' : ''}">${x.length}</b><button class="btn sec sm" data-score="${esc(x)}">Puntuar</button><button class="btn sec sm" data-copy="${esc(x)}">Copiar</button></div>`
-  ).join('');
+    return `<div class="tt"><span class="txt">${esc(x)}</span><div class="acts"><button class="btn sec sm" data-copy="${esc(x)}">Copiar</button></div></div>`; }).join('');
+  $('#gTitulos').innerHTML = titles.map(x => titleRow(x)).join('');
   $('#gDesc').value = genDesc(t, type, canal, pk);
   $('#gTags').value = genTags(t, type, pk);
   $('#gOut').hidden = false;
@@ -392,12 +418,45 @@ function runGen(){
 }
 $('#gBtn').onclick = runGen;
 $('#gTema').addEventListener('keydown', e => { if(e.key === 'Enter') runGen(); });
-$('#gTitulos').addEventListener('click', e => {
-  const s = e.target.closest('[data-score]');
-  if(s){ $('#aA').value = s.dataset.score; $('#aB').value = ''; $('#aK').value = $('#gTema').value.trim(); show('analizador'); runAnalyzer(); return; }
-  const b = e.target.closest('[data-copy]'); if(b) copy(b.dataset.copy);
-});
-$('#gHooks').addEventListener('click', e => { const b = e.target.closest('[data-copy]'); if(b) copy(b.dataset.copy); });
+const isFav = x => favs.some(f => f.texto === x);
+function titleRow(x){
+  return `<div class="tt"><span class="txt">${esc(x)}</span><div class="acts">
+    <b class="badge ${x.length > 60 ? 'warn' : ''}">${x.length}</b>
+    <button class="btn sec sm" data-fav="${esc(x)}" aria-label="Guardar en favoritos">${isFav(x) ? '★' : '☆'}</button>
+    <button class="btn sec sm" data-score="${esc(x)}">Puntuar</button>
+    <button class="btn sec sm" data-copy="${esc(x)}">Copiar</button>
+    <button class="btn sec sm" data-drop="1" aria-label="Descartar">✕</button></div></div>`;
+}
+function renderFavs(){
+  const box = $('#favBox');
+  box.hidden = !favs.length;
+  $('#favSum').textContent = `⭐ Mis favoritos (${favs.length})`;
+  $('#favList').innerHTML = favs.map(f => `<div class="tt"><span class="txt">${esc(f.texto)}</span><div class="acts">
+    <button class="btn sec sm" data-copy="${esc(f.texto)}">Copiar</button>
+    <button class="btn sec sm" data-score="${esc(f.texto)}">Puntuar</button>
+    <button class="btn sec sm" data-cal="${esc(f.texto)}">📅 Calendario</button>
+    <button class="btn sec sm" data-unfav="${esc(f.texto)}" aria-label="Quitar de favoritos">🗑</button></div></div>`).join('');
+  document.querySelectorAll('#gTitulos [data-fav]').forEach(b => { b.textContent = isFav(b.dataset.fav) ? '★' : '☆'; });
+}
+function toggleFav(texto){
+  if(isFav(texto)){ favs = favs.filter(f => f.texto !== texto); toast('Quitado de favoritos'); }
+  else{ favs.unshift({id: uid(), texto}); toast('Guardado en favoritos ⭐'); }
+  saveAll(); renderFavs();
+}
+function rowActions(e){
+  const el = e.target.closest('[data-score],[data-copy],[data-fav],[data-drop],[data-cal],[data-unfav]');
+  if(!el) return;
+  const d = el.dataset;
+  if(d.score !== undefined){ $('#aA').value = d.score; $('#aB').value = ''; $('#aK').value = $('#gTema').value.trim(); show('analizador'); runAnalyzer(); }
+  else if(d.copy !== undefined) copy(d.copy);
+  else if(d.fav !== undefined) toggleFav(d.fav);
+  else if(d.unfav !== undefined) toggleFav(d.unfav);
+  else if(d.drop !== undefined) el.closest('.tt').remove();
+  else if(d.cal !== undefined){ $('#vTitulo').value = d.cal; show('calendario'); $('#vTitulo').focus(); }
+}
+$('#gTitulos').addEventListener('click', rowActions);
+$('#favList').addEventListener('click', rowActions);
+$('#gHooks').addEventListener('click', rowActions);
 $('#cDesc').onclick = () => copy($('#gDesc').value);
 $('#cTags').onclick = () => copy($('#gTags').value);
 
@@ -496,7 +555,7 @@ $('#iList').addEventListener('click', e => {
 
 /* ---------- Copia de seguridad ---------- */
 $('#exp').onclick = () => {
-  const blob = new Blob([JSON.stringify({videos, checks, ideas})], {type: 'application/json'});
+  const blob = new Blob([JSON.stringify({videos, checks, ideas, favs})], {type: 'application/json'});
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'creatorkit-copia.json'; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 };
@@ -508,7 +567,7 @@ $('#imp').onchange = e => {
     try{
       const d = JSON.parse(r.result);
       if(!Array.isArray(d.videos) || !Array.isArray(d.checks) || !Array.isArray(d.ideas)) throw 0;
-      videos = d.videos; checks = d.checks; ideas = d.ideas; saveAll(); renderAll(); toast('Copia importada ✓');
+      videos = d.videos; checks = d.checks; ideas = d.ideas; favs = Array.isArray(d.favs) ? d.favs : []; saveAll(); renderAll(); toast('Copia importada ✓');
     }catch(_){ toast('Archivo no válido'); }
   };
   r.readAsText(f); e.target.value = '';
@@ -968,7 +1027,7 @@ $('#mDl').onclick = () => {
 };
 drawThumb();
 
-function renderAll(){ renderCal(); renderVideos(); renderChecks(); renderIdeas(); }
+function renderAll(){ renderCal(); renderVideos(); renderChecks(); renderIdeas(); renderFavs(); }
 renderAll();
 
 if('serviceWorker' in navigator && location.protocol.indexOf('http') === 0){
