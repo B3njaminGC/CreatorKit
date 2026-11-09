@@ -45,7 +45,7 @@ jobs:
       - name: Generar íconos de la app
         continue-on-error: true
         run: |
-          npm install --no-save @capacitor/assets@3
+          for i in 1 2 3 4; do npm install --no-save @capacitor/assets@3 && break; echo "Reintento $i"; sleep 25; done
           npx capacitor-assets generate --android --iconBackgroundColor '#0f1220' --iconBackgroundColorDark '#0f1220'
 
       - name: Número de versión
