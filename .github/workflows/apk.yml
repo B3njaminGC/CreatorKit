@@ -37,13 +37,16 @@ jobs:
       - name: Crear el proyecto Android con Capacitor
         run: |
           npm init -y
-          npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6 @capacitor/assets@3
+          # GitHub a veces corta descargas por un momento: se reintenta hasta 3 veces
+          for i in 1 2 3; do npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6 && break; echo "Reintento $i"; sleep 20; done
           npx cap init "CreatorKit" "com.b3njamingc.creatorkit" --web-dir www
           npx cap add android
 
       - name: Generar íconos de la app
         continue-on-error: true
-        run: npx capacitor-assets generate --android --iconBackgroundColor '#0f1220' --iconBackgroundColorDark '#0f1220'
+        run: |
+          npm install --no-save @capacitor/assets@3
+          npx capacitor-assets generate --android --iconBackgroundColor '#0f1220' --iconBackgroundColorDark '#0f1220'
 
       - name: Número de versión
         run: |
@@ -58,7 +61,7 @@ jobs:
         if: ${{ env.KS == '' }}
         working-directory: android
         run: |
-          ./gradlew assembleDebug --no-daemon
+          for i in 1 2 3; do ./gradlew assembleDebug --no-daemon && break; echo "Reintento $i"; sleep 20; done
           cp app/build/outputs/apk/debug/app-debug.apk ../CreatorKit.apk
 
       # Con claves de firma (secrets KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS): APK firmado y actualizable
@@ -70,7 +73,7 @@ jobs:
           KS_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
           echo "$KS" | base64 -d > "$RUNNER_TEMP/release.keystore"
-          ./gradlew assembleRelease --no-daemon
+          for i in 1 2 3; do ./gradlew assembleRelease --no-daemon && break; echo "Reintento $i"; sleep 20; done
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
           "$BT/zipalign" -f -p 4 app/build/outputs/apk/release/app-release-unsigned.apk "$RUNNER_TEMP/aligned.apk"
           "$BT/apksigner" sign --ks "$RUNNER_TEMP/release.keystore" --ks-key-alias "$KS_ALIAS" \
