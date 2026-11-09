@@ -13,7 +13,7 @@ jobs:
     steps:
       - name: Consultar la base de datos
         run: |
-          URL="https://waxblpcojiqamlxgspdd.supabase.co/rest/v1/"
+          URL="https://waxblpcojiqamlxgspdd.supabase.co/rest/v1/packs?select=name&limit=1"
           KEY="sb_publishable_ZGY9cpOsLZ1S0Hf5Yek-zw_Z_FDVI6K"
           for i in 1 2 3; do
             CODE=$(curl -s -o /dev/null -w "%{http_code}" "$URL" -H "apikey: $KEY")
